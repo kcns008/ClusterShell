@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# RuntimeClasses for strong isolation runtimes
+# These provide kernel-level isolation for untrusted AI agent code
+{{- if .Values.runtimeClasses.enabled }}
+---
+# RuntimeClass for gVisor - userspace kernel for container isolation
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+  labels:
+    {{- include "clustershell.labels" . | nindent 4 }}
+handler: runsc
+# The handler name should match the container runtime configuration on nodes
+# For containerd: add to /etc/containerd/config.toml:
+#   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runsc]
+#     runtime_type = "io.containerd.runsc.v1"
+# For cri-o: add to /etc/crio/crio.conf:
+#   [crio.runtime.runtimes.runsc]
+#   allowed_annotations = ["io.kubernetes.cri-o.TrustedSandbox"]
+#   runtime_path = "/usr/local/bin/runsc"
+scheduling:
+  nodeSelector:
+    {{- if .Values.runtimeClasses.gvisor.nodeSelector }}
+    {{- toYaml .Values.runtimeClasses.gvisor.nodeSelector | nindent 4 }}
+    {{- else }}
+    runtime: gvisor
+    {{- end }}
+  tolerations:
+    {{- if .Values.runtimeClasses.gvisor.tolerations }}
+    {{- toYaml .Values.runtimeClasses.gvisor.tolerations | nindent 4 }}
+    {{- else }}
+    - key: "node.kubernetes.io/gvisor"
+      operator: "Exists"
+      effect: "NoSchedule"
+    {{- end }}
+---
+# RuntimeClass for Kata Containers - VM-level isolation
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kata
+  labels:
+    {{- include "clustershell.labels" . | nindent 4 }}
+handler: kata
+# The handler name should match the container runtime configuration on nodes
+# For containerd: add to /etc/containerd/config.toml:
+#   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+#     runtime_type = "io.containerd.kata.v2"
+# For cri-o: add to /etc/crio/crio.conf:
+#   [crio.runtime.runtimes.kata]
+#   runtime_path = "/usr/local/bin/containerd-shim-kata-v2"
+#   runtime_type = "vm"
+scheduling:
+  nodeSelector:
+    {{- if .Values.runtimeClasses.kata.nodeSelector }}
+    {{- toYaml .Values.runtimeClasses.kata.nodeSelector | nindent 4 }}
+    {{- else }}
+    runtime: kata
+    {{- end }}
+  tolerations:
+    {{- if .Values.runtimeClasses.kata.tolerations }}
+    {{- toYaml .Values.runtimeClasses.kata.tolerations | nindent 4 }}
+    {{- else }}
+    - key: "node.kubernetes.io/kata"
+      operator: "Exists"
+      effect: "NoSchedule"
+    {{- end }}
+---
+# RuntimeClass for Kata Containers with confidential computing
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kata-cc
+  labels:
+    {{- include "clustershell.labels" . | nindent 4 }}
+handler: kata-cc
+scheduling:
+  nodeSelector:
+    {{- if .Values.runtimeClasses.kataCC.nodeSelector }}
+    {{- toYaml .Values.runtimeClasses.kataCC.nodeSelector | nindent 4 }}
+    {{- else }}
+    runtime: kata-cc
+    {{- end }}
+  tolerations:
+    {{- if .Values.runtimeClasses.kataCC.tolerations }}
+    {{- toYaml .Values.runtimeClasses.kataCC.tolerations | nindent 4 }}
+    {{- else }}
+    - key: "node.kubernetes.io/kata-cc"
+      operator: "Exists"
+      effect: "NoSchedule"
+    {{- end }}
+{{- end }}

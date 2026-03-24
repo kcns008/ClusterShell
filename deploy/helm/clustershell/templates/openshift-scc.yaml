@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# OpenShift Security Context Constraints for ClusterShell
+# This template is only applied when .Values.openshift.enabled is true
+{{- if .Values.openshift.enabled }}
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ include "clustershell.fullname" . }}-scc
+  labels:
+    {{- include "clustershell.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/description: "Security Context Constraints for ClusterShell operator and sandboxes"
+allowPrivilegedContainer: {{ .Values.openshift.scc.allowPrivilegedContainer | default false }}
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+allowedCapabilities: []
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+readOnlyRootFilesystem: true
+runAsUser:
+  type: MustRunAsNonRoot
+seLinuxContext:
+  type: MustRunAs
+fsGroup:
+  type: MustRunAs
+  ranges:
+    - min: 1000
+      max: 2000
+seccompProfiles:
+  - runtime/default
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+users:
+  - "system:serviceaccount:{{ .Release.Namespace }}:{{ include "clustershell.serviceAccountName" . }}"
+---
+# SCC for sandboxes with stronger isolation (gVisor/Kata)
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ include "clustershell.fullname" . }}-sandbox-scc
+  labels:
+    {{- include "clustershell.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/description: "Security Context Constraints for ClusterShell sandboxes with strong isolation"
+allowPrivilegedContainer: false
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+allowedCapabilities:
+  - NET_ADMIN      # Required for network namespace isolation
+  - SYS_ADMIN      # Required for gVisor/Kata containers
+  - SYS_RESOURCE   # Required for resource limits
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+readOnlyRootFilesystem: true
+runAsUser:
+  type: MustRunAs
+  ranges:
+    - min: 1000
+      max: 65535
+seLinuxContext:
+  type: MustRunAs
+fsGroup:
+  type: MustRunAs
+  ranges:
+    - min: 1000
+      max: 65535
+seccompProfiles:
+  - runtime/default
+volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+users:
+  - "system:serviceaccount:{{ .Values.server.sandboxNamespace | default "clustershell" }}:*"
+{{- end }}

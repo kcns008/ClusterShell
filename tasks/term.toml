@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# TUI tasks
+
+[term]
+description = "Launch the ClusterShell TUI"
+run = "clustershell term"
+hide = true
+
+["term:dev"]
+description = "Launch the ClusterShell TUI with hot-reload on file changes"
+run = "cargo watch -s 'clustershell term'"
+hide = true

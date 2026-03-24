@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "clustershell-operator"
+description = "ClusterShell Kubernetes Operator - Manages Sandbox CRDs for agent-sandbox compatibility"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "clustershell-operator"
+path = "src/main.rs"
+
+[dependencies]
+clustershell-core = { path = "../clustershell-core" }
+
+# Kubernetes API
+kube = { workspace = true, features = ["runtime", "derive", "client"] }
+kube-runtime = { workspace = true }
+k8s-openapi = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Error handling
+miette = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Utilities
+futures = { workspace = true }
+uuid = { workspace = true }
+schemars = { workspace = true }
+chrono = { workspace = true }
+
+[features]
+default = ["v1_26"]
+v1_26 = ["k8s-openapi/v1_26"]
+
+[lints]
+workspace = true

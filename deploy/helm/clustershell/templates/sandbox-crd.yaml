@@ -1,0 +1,450 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Sandbox CRD - Singleton, stateful, singleton workloads with stable identity
+# Compatible with kubernetes-sigs/agent-sandbox specification
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sandboxes.agents.x-k8s.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+spec:
+  group: agents.x-k8s.io
+  names:
+    kind: Sandbox
+    listKind: SandboxList
+    plural: sandboxes
+    shortNames:
+      - sandbox
+    singular: sandbox
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: Sandbox is the Schema for the sandboxes API
+          type: object
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object.'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents.'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: SandboxSpec defines the desired state of Sandbox
+              type: object
+              required:
+                - podTemplate
+              properties:
+                podTemplate:
+                  description: podTemplate describes the pod spec for the sandbox
+                  type: object
+                  required:
+                    - spec
+                  properties:
+                    metadata:
+                      type: object
+                      properties:
+                        labels:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        annotations:
+                          type: object
+                          additionalProperties:
+                            type: string
+                    spec:
+                      description: PodSpec is a description of a pod
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                volumeClaimTemplates:
+                  description: volumeClaimTemplates is a list of claims for the sandbox
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metadata:
+                        type: object
+                      spec:
+                        description: PersistentVolumeClaimSpec
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                lifecycle:
+                  description: Lifecycle defines when and how the sandbox should be shut down
+                  type: object
+                  properties:
+                    shutdownTime:
+                      description: shutdownTime is the absolute time when the sandbox expires
+                      type: string
+                      format: date-time
+                    shutdownPolicy:
+                      description: shutdownPolicy determines if the Sandbox should be deleted when expired
+                      type: string
+                      enum:
+                        - Delete
+                        - Retain
+                      default: Retain
+                replicas:
+                  description: replicas is the number of desired replicas (0 or 1)
+                  type: integer
+                  minimum: 0
+                  maximum: 1
+                  default: 1
+                runtimeClass:
+                  description: runtimeClass specifies the isolation runtime
+                  type: string
+                  enum:
+                    - Standard
+                    - GVisor
+                    - Kata
+                  default: Standard
+                hibernationEnabled:
+                  description: hibernationEnabled allows the sandbox to be hibernated when idle
+                  type: boolean
+                  default: false
+                idleTimeoutSeconds:
+                  description: idleTimeoutSeconds is the duration before hibernation
+                  type: integer
+                  default: 3600
+            status:
+              description: SandboxStatus defines the observed state of Sandbox
+              type: object
+              properties:
+                serviceFQDN:
+                  description: serviceFQDN is the FQDN of the service
+                  type: string
+                service:
+                  description: service is the name of the service
+                  type: string
+                phase:
+                  description: phase represents the current lifecycle phase
+                  type: string
+                  enum:
+                    - Pending
+                    - Creating
+                    - Running
+                    - Paused
+                    - Resuming
+                    - Terminating
+                    - Terminated
+                    - Expired
+                    - Failed
+                conditions:
+                  description: conditions defines the status conditions
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      lastTransitionReason:
+                        type: string
+                      message:
+                        type: string
+                replicas:
+                  description: replicas is the number of actual replicas
+                  type: integer
+                selector:
+                  description: selector is the label selector for pods
+                  type: string
+                podName:
+                  description: podName is the name of the backing pod
+                  type: string
+                observedGeneration:
+                  description: observedGeneration is the most recent generation observed
+                  type: integer
+      subresources:
+        status: {}
+        scale:
+          specReplicasPath: .spec.replicas
+          statusReplicasPath: .status.replicas
+          labelSelectorPath: .status.selector
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Replicas
+          type: integer
+          jsonPath: .status.replicas
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+---
+# SandboxTemplate CRD - Reusable templates for creating Sandboxes
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sandboxtemplates.agents.x-k8s.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+spec:
+  group: agents.x-k8s.io
+  names:
+    kind: SandboxTemplate
+    listKind: SandboxTemplateList
+    plural: sandboxtemplates
+    shortNames:
+      - sbtemplate
+    singular: sandboxtemplate
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: SandboxTemplate provides reusable templates for creating Sandboxes
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: SandboxTemplateSpec defines the desired state
+              type: object
+              required:
+                - template
+              properties:
+                template:
+                  description: template is the base pod template
+                  type: object
+                  required:
+                    - spec
+                  properties:
+                    metadata:
+                      type: object
+                    spec:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                volumeClaimTemplates:
+                  description: volumeClaimTemplates are PVC templates
+                  type: array
+                  items:
+                    type: object
+                defaultLifecycle:
+                  description: defaultLifecycle is the default lifecycle configuration
+                  type: object
+                  properties:
+                    shutdownTime:
+                      type: string
+                      format: date-time
+                    shutdownPolicy:
+                      type: string
+                      enum:
+                        - Delete
+                        - Retain
+                defaultRuntimeClass:
+                  description: defaultRuntimeClass is the default runtime class
+                  type: string
+                  enum:
+                    - Standard
+                    - GVisor
+                    - Kata
+                defaultHibernationEnabled:
+                  description: defaultHibernationEnabled is the default hibernation setting
+                  type: boolean
+                defaultIdleTimeoutSeconds:
+                  description: defaultIdleTimeoutSeconds is the default idle timeout
+                  type: integer
+            status:
+              description: SandboxTemplateStatus defines the observed state
+              type: object
+              properties:
+                sandboxCount:
+                  description: sandboxCount is the number of sandboxes created
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Sandboxes
+          type: integer
+          jsonPath: .status.sandboxCount
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+---
+# SandboxClaim CRD - Abstracted sandbox allocation
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sandboxclaims.agents.x-k8s.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+spec:
+  group: agents.x-k8s.io
+  names:
+    kind: SandboxClaim
+    listKind: SandboxClaimList
+    plural: sandboxclaims
+    shortNames:
+      - sbclaim
+    singular: sandboxclaim
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: SandboxClaim allows users to create Sandboxes from a template
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: SandboxClaimSpec defines the desired state
+              type: object
+              required:
+                - templateRef
+              properties:
+                templateRef:
+                  description: templateRef references a SandboxTemplate
+                  type: string
+                sandboxNamePrefix:
+                  description: sandboxNamePrefix is an optional prefix for the sandbox name
+                  type: string
+                overrides:
+                  description: overrides allows overriding template settings
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+            status:
+              description: SandboxClaimStatus defines the observed state
+              type: object
+              properties:
+                phase:
+                  description: phase represents the current phase
+                  type: string
+                sandboxRef:
+                  description: sandboxRef references the created sandbox
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Sandbox
+          type: string
+          jsonPath: .status.sandboxRef
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+---
+# SandboxWarmPool CRD - Pre-warmed sandbox pools
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sandboxwarmpools.agents.x-k8s.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+spec:
+  group: agents.x-k8s.io
+  names:
+    kind: SandboxWarmPool
+    listKind: SandboxWarmPoolList
+    plural: sandboxwarmpools
+    shortNames:
+      - sbwarm
+    singular: sandboxwarmpool
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: SandboxWarmPool manages pre-warmed Sandbox pods
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: SandboxWarmPoolSpec defines the desired state
+              type: object
+              required:
+                - templateRef
+              properties:
+                templateRef:
+                  description: templateRef references a SandboxTemplate
+                  type: string
+                minReady:
+                  description: minReady is the minimum number of ready sandboxes
+                  type: integer
+                  default: 1
+                maxSize:
+                  description: maxSize is the maximum number of sandboxes
+                  type: integer
+                  default: 5
+                scaleDownDelaySeconds:
+                  description: scaleDownDelaySeconds is the delay before scaling down
+                  type: integer
+                  default: 300
+            status:
+              description: SandboxWarmPoolStatus defines the observed state
+              type: object
+              properties:
+                readyCount:
+                  description: readyCount is the number of ready sandboxes
+                  type: integer
+                totalCount:
+                  description: totalCount is the total number of sandboxes
+                  type: integer
+                sandboxes:
+                  description: sandboxes is the list of sandboxes in the pool
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      state:
+                        type: string
+                      allocationTime:
+                        type: string
+                        format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: integer
+          jsonPath: .status.readyCount
+        - name: Total
+          type: integer
+          jsonPath: .status.totalCount
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
