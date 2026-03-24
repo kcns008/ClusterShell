@@ -8,11 +8,13 @@
 
 ClusterShell is the safe, private runtime for autonomous AI agents. It provides sandboxed execution environments that protect your data, credentials, and infrastructure — governed by declarative YAML policies that prevent unauthorized file access, data exfiltration, and uncontrolled network activity.
 
+**Deploy anywhere:** Local Docker, Kubernetes clusters, or OpenShift — all with the same policy-driven security model.
+
 ClusterShell is built agent-first. The project ships with agent skills for everything from cluster debugging to policy generation, and we expect contributors to use them.
 
 > **Alpha software — single-player mode.** ClusterShell is proof-of-life: one developer, one environment, one gateway. We are building toward multi-tenant enterprise deployments, but the starting point is getting your own environment up and running. Expect rough edges. Bring your agent.
 
-## Quickstart
+## Quickstart (Local Docker)
 
 ### Prerequisites
 
@@ -42,14 +44,58 @@ clustershell sandbox create -- claude  # or opencode, codex, copilot
 
 A gateway is created automatically on first use. To deploy on a remote host instead, pass `--remote user@host` to the create command.
 
-The sandbox container includes the following tools by default:
+## Deployment Options
 
-| Category   | Tools                                                    |
+ClusterShell supports multiple deployment modes:
+
+| Mode | Best For | Setup |
+|------|----------|-------|
+| **Docker (Local)** | Development, single-user | One command — gateway auto-provisioned |
+| **Kubernetes** | Teams, multi-tenant, production | Install operator, use CRDs |
+| **OpenShift** | Enterprise, integrated auth | Native Routes, SCCs, full support |
+
+### Kubernetes / OpenShift Quickstart
+
+Deploy ClusterShell on existing infrastructure:
+
+```bash
+# Install the operator
+kubectl apply -f deploy/kube/operator/
+
+# Create a sandbox via CRD
+kubectl apply -f - <<EOF
+apiVersion: agent-sandbox.io/v1
+kind: Sandbox
+metadata:
+  name: my-sandbox
+spec:
+  image: ghcr.io/kcns008/clustershell-community/sandboxes/base:latest
+  agent: claude
+  networkPolicy:
+    egress:
+      - to:
+        - cidr: 0.0.0.0/0
+EOF
+
+# Access via stable endpoint
+kubectl exec -it sandbox/my-sandbox -- claude
+```
+
+See the [Kubernetes Operator documentation](architecture/kubernetes-operator.md) for full details on CRD-based management, RuntimeClasses (gVisor/Kata), and OpenShift integration.
+
+---
+
+## What's Included
+
+The gateway and sandbox containers include the following tools:
+
+| Category | Tools |
 | ---------- | -------------------------------------------------------- |
-| Agent      | `claude`, `opencode`, `codex`, `copilot`                 |
-| Language   | `python` (3.13), `node` (22)                             |
-| Developer  | `gh`, `git`, `vim`, `nano`                               |
+| Agent | `claude`, `opencode`, `codex`, `copilot` |
+| Language | `python` (3.13), `node` (22) |
+| Developer | `gh`, `git`, `vim`, `nano` |
 | Networking | `ping`, `dig`, `nslookup`, `nc`, `traceroute`, `netstat` |
+| Kubernetes | `kubectl`, `k9s`, `helm` (cluster image only) |
 
 For more details see https://github.com/kcns008/ClusterShell-Community/tree/main/sandboxes/base.
 

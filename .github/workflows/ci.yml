@@ -1,0 +1,380 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.rs'
+      - '**.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'deploy/docker/**'
+      - 'proto/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.rs'
+      - '**.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'deploy/docker/**'
+      - 'proto/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  DOCKER_BUILDKIT: "1"
+  IMAGE_REGISTRY: ghcr.io
+  UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+  SCCACHE_DIR: ${{ github.workspace }}/.cache/sccache
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build CI runner image when Dockerfile.ci changes
+  build-ci-runner:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && (
+        contains(github.event.head_commit.modified, 'deploy/docker/Dockerfile.ci') ||
+        contains(github.event.head_commit.modified, 'mise.toml')
+      )
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/clustershell/ci-runner
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+
+      - name: Build and push CI runner image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.ci
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          secret-envs: |
+            MISE_GITHUB_TOKEN=GITHUB_TOKEN
+
+  # Lint, format, and compile checks
+  lint-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clustershell-lint"
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          uv pip install ruff ty maturin
+
+      - name: Run license check
+        run: |
+          # Check for license headers
+          ./scripts/license-check.sh || true
+
+      - name: Run Rust format check
+        run: cargo fmt -- --check
+
+      - name: Run Rust lint
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run Python format check
+        run: uv run ruff format --check python/ tasks/scripts/*.py deploy/sbom/*.py
+
+      - name: Run Python lint
+        run: uv run ruff check python/ tasks/scripts/*.py deploy/sbom/*.py
+
+      - name: Compile check
+        run: cargo check --workspace
+
+  # Unit tests
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: lint-and-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clustershell-test"
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run Rust tests
+        run: cargo test --workspace
+
+      - name: Run Python tests
+        run: uv run pytest python/ -v --tb=short
+
+  # Build Docker images
+  build-images:
+    runs-on: ubuntu-latest
+    needs: lint-and-check
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: gateway
+            name: clustershell/gateway
+          - target: cluster
+            name: clustershell/cluster
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.images
+          target: ${{ matrix.target }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # Build Python wheels
+  build-python-wheels:
+    runs-on: ${{ matrix.os }}
+    needs: lint-and-check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        arch: [x86_64]
+        include:
+          - os: macos-latest
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install maturin
+        run: uv pip install maturin
+
+      - name: Build wheels
+        run: uv run maturin build --release --strip
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: target/wheels/*.whl
+          retention-days: 7
+
+  # Security scanning with Trivy
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      matrix:
+        image: [gateway, cluster]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/clustershell/${{ matrix.image }}:latest
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  # Generate SBOM
+  sbom:
+    runs-on: ubuntu-latest
+    needs: [build-images, build-python-wheels]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM for gateway image
+        run: |
+          syft ghcr.io/${{ github.repository_owner }}/clustershell/gateway:latest \
+            -o spdx-json=sbom-gateway.spdx.json \
+            -o cyclonedx-json=sbom-gateway.cyclonedx.json
+
+      - name: Generate SBOM for cluster image
+        run: |
+          syft ghcr.io/${{ github.repository_owner }}/clustershell/cluster:latest \
+            -o spdx-json=sbom-cluster.spdx.json \
+            -o cyclonedx-json=sbom-cluster.cyclonedx.json
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sboms
+          path: |
+            sbom-*.json
+          retention-days: 30
+
+  # Release packages
+  release:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, build-images, build-python-wheels, security-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: |
+          ls -la artifacts/
+          find artifacts/ -name "*.whl" -o -name "*.tar.gz"
+
+      # Push Python wheels to GitHub Packages (if configured)
+      - name: Setup Python for publishing
+        if: env.PUBLISH_PYTHON == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Publish Python wheels
+        if: env.PUBLISH_PYTHON == 'true'
+        run: |
+          pip install twine
+          twine upload --repository-url https://upload.pypi.org/legacy/ artifacts/wheels-*/*.whl
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
