@@ -198,3 +198,30 @@ graph TB
 5. **Inference Routing**: Inference requests are handled inside the sandbox by the clustershell-router (not through the gateway). The gateway provides route configuration and credentials via gRPC; the sandbox executes HTTP requests directly to inference backends.
 
 6. **Sandbox to Gateway**: The sandbox supervisor uses gRPC (mTLS) to fetch policies and runtime settings (via `GetSandboxSettings`), provider credentials, inference bundles, and to push logs back to the gateway. The settings channel delivers typed key-value pairs alongside policy through a unified poll loop.
+
+7. **Kubernetes Operator**: When running on Kubernetes/OpenShift with the operator enabled, the ClusterShell Operator manages Sandbox CRDs. Users can create sandboxes via `kubectl apply` or via the CLI. The operator reconciles Sandbox CRDs into Pods and Services, providing stable network identity and lifecycle management (hibernation, warm pools).
+
+## Deployment Modes
+
+The platform supports three deployment modes:
+
+### 1. Native Mode (Default)
+- Sandboxes run via direct process isolation (Landlock, seccomp, network namespaces)
+- Gateway creates and manages sandbox processes directly
+- No Kubernetes dependency for sandbox execution
+- Best for: Local development, single-node deployments
+
+### 2. Kubernetes Mode
+- Sandboxes managed via Kubernetes CRDs (`agents.x-k8s.io/v1alpha1`)
+- ClusterShell Operator reconciles CRDs into Pods and Services
+- Supports strong isolation via gVisor/Kata Containers RuntimeClasses
+- Best for: Production clusters, multi-tenant environments
+
+### 3. Hybrid Mode
+- Both native and Kubernetes sandboxes coexist
+- Existing sandboxes continue with native isolation
+- New sandboxes can use CRD-based management
+- Gateway coordinates between both modes
+- Best for: Migration scenarios, gradual adoption
+
+See [Kubernetes Operator Architecture](kubernetes-operator.md) for detailed documentation on CRD-based sandbox management.

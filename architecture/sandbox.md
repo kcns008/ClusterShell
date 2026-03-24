@@ -2,6 +2,44 @@
 
 The sandbox binary isolates a user-specified command inside a child process with policy-driven enforcement. It combines Linux kernel mechanisms (Landlock, seccomp, network namespaces) with an application-layer HTTP CONNECT proxy to provide filesystem, syscall, and network isolation. An embedded OPA/Rego policy engine evaluates every outbound network connection against per-binary rules, and an optional L7 inspection layer examines individual HTTP requests within allowed tunnels.
 
+## Deployment Modes
+
+ClusterShell supports two distinct sandbox execution modes that can coexist:
+
+### Native Mode (Direct Process Isolation)
+
+The default mode where sandboxes run as isolated processes on the host or in a Docker container. This is the traditional ClusterShell approach that provides:
+- **Landlock** for filesystem isolation
+- **seccomp** for syscall filtering
+- **Network namespaces** for network isolation
+- **HTTP CONNECT proxy** for policy enforcement
+
+This mode is ideal for:
+- Local development
+- Single-node deployments
+- Air-gapped environments
+- Quick testing without Kubernetes infrastructure
+
+### Kubernetes Mode (CRD-Based)
+
+When running on Kubernetes/OpenShift with the operator enabled, sandboxes can be managed via the [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox) CRD specification:
+- **Sandbox CRD**: Declarative sandbox definitions
+- **RuntimeClasses**: gVisor or Kata Containers for strong isolation
+- **Services**: Stable network identity for each sandbox
+- **Lifecycle**: Hibernation, warm pools, and scale-to-zero
+
+This mode is ideal for:
+- Production Kubernetes clusters
+- Multi-tenant environments
+- Strong isolation requirements (gVisor/Kata)
+- Teams already using Kubernetes
+
+### Hybrid Mode
+
+Both modes can coexist. Existing sandboxes continue with native isolation while new sandboxes can use CRD-based management. The gateway coordinates between both modes transparently.
+
+See [Kubernetes Operator Architecture](kubernetes-operator.md) for CRD-based sandbox documentation.
+
 ## Source File Index
 
 All paths are relative to `crates/clustershell-sandbox/src/`.

@@ -101,6 +101,26 @@ ClusterShell isolates each sandbox in its own container with policy-enforced egr
 
 Under the hood, all these components run as a [K3s](https://k3s.io/) Kubernetes cluster inside a single Docker container — no separate K8s install required. The `clustershell gateway` commands take care of provisioning the container and cluster.
 
+## Kubernetes & OpenShift Integration
+
+ClusterShell now includes a native Kubernetes operator that implements the [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox) specification. This enables:
+
+- **CRD-based Sandboxes**: Create sandboxes via `kubectl apply` using the `Sandbox` CRD
+- **Strong Isolation**: Use gVisor or Kata Containers RuntimeClasses for kernel-level isolation
+- **Stable Identity**: Each sandbox gets a stable hostname and service endpoint
+- **Lifecycle Management**: Auto-hibernation, warm pools, and scale-to-zero capabilities
+- **OpenShift Native**: Full support for Routes, Security Context Constraints, and integrated authentication
+
+### Hybrid Deployment Modes
+
+The platform supports three deployment modes:
+
+1. **Native Mode** (default): Direct process sandboxing with Landlock/seccomp/network namespaces
+2. **Kubernetes Mode**: CRD-based sandbox management via the operator
+3. **Hybrid Mode**: Both modes coexist — existing sandboxes use native isolation, new sandboxes can use CRDs
+
+See the [Kubernetes Operator Architecture](architecture/kubernetes-operator.md) for detailed documentation.
+
 ## Protection Layers
 
 ClusterShell applies defense in depth across four policy domains:

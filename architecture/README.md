@@ -292,6 +292,7 @@ This opens an interactive SSH session into the sandbox, with all provider creden
 | [Gateway Communication](gateway-deploy-connect.md) | How the CLI resolves a gateway and communicates with it over mTLS, plaintext HTTP/2, or an edge-authenticated WebSocket tunnel. |
 | [Gateway Security](gateway-security.md) | mTLS enforcement, PKI bootstrap, certificate hierarchy, and the gateway trust model. |
 | [Sandbox Architecture](sandbox.md) | The sandbox execution environment: policy enforcement, Landlock, seccomp, network namespaces, and the network proxy. |
+| [Kubernetes Operator](kubernetes-operator.md) | **NEW** CRD-based sandbox management for Kubernetes/OpenShift: Sandbox CRDs, strong isolation with gVisor/Kata, lifecycle management, and hybrid deployment modes. |
 | [Container Management](build-containers.md) | Container images, Dockerfiles, Helm charts, build tasks, and CI/CD. |
 | [Sandbox Connect](sandbox-connect.md) | SSH tunneling into sandboxes through the gateway. |
 | [Sandbox Custom Containers](sandbox-custom-containers.md) | Building and using custom container images for sandboxes. |

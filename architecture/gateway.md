@@ -4,6 +4,36 @@
 
 `clustershell-server` is the gateway -- the central control plane for a cluster. It exposes two gRPC services (ClusterShell and Inference) and HTTP endpoints on a single multiplexed port, manages sandbox lifecycle through Kubernetes CRDs, persists state in SQLite or Postgres, and provides SSH tunneling into sandbox pods. The gateway coordinates all interactions between clients, the Kubernetes cluster, and the persistence layer.
 
+## Deployment Modes
+
+The gateway supports three sandbox execution modes:
+
+### Native Mode
+In native mode, the gateway creates sandboxes by spawning isolated processes directly. This uses:
+- Landlock for filesystem isolation
+- seccomp for syscall filtering
+- Network namespaces for network isolation
+- HTTP CONNECT proxy for policy enforcement
+
+This is the default mode for local development and single-node deployments.
+
+### Kubernetes Mode
+When the ClusterShell Operator is deployed, the gateway can delegate sandbox lifecycle to the operator, which manages:
+- **Sandbox CRDs**: Kubernetes custom resources representing sandboxes
+- **Pods**: Actual sandbox execution via Kubernetes pods
+- **Services**: Stable network identities for inter-sandbox communication
+- **RuntimeClasses**: Optional gVisor/Kata Containers for strong isolation
+
+The gateway watches Sandbox CRDs and coordinates with the operator for lifecycle events.
+
+### Hybrid Mode
+Both modes can operate simultaneously. The gateway uses heuristics or explicit annotations to determine whether to create a native sandbox or delegate to the operator. This enables:
+- Gradual migration from native to CRD-based sandboxes
+- Coexistence of different isolation requirements
+- Flexibility for mixed workloads
+
+See [Kubernetes Operator Architecture](kubernetes-operator.md) for detailed CRD documentation.
+
 ## Architecture Diagram
 
 The following diagram shows the major components inside the gateway process and their relationships.

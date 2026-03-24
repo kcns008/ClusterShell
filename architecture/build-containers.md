@@ -1,37 +1,52 @@
 # Container Images
 
-ClusterShell produces two container images, both published for `linux/amd64` and `linux/arm64`.
+ClusterShell produces three container images, all published for `linux/amd64` and `linux/arm64`.
 
 ## Gateway (`clustershell/gateway`)
 
 The gateway runs the control plane API server. It is deployed as a StatefulSet inside the cluster container via a bundled Helm chart.
 
 - **Docker target**: `gateway` in `deploy/docker/Dockerfile.images`
-- **Registry**: `ghcr.io/nvidia/clustershell/gateway:latest`
+- **Registry**: `ghcr.io/kcns008/clustershell/gateway:latest`
 - **Pulled when**: Cluster startup (the Helm chart triggers the pull)
 - **Entrypoint**: `clustershell-server --port 8080` (gRPC + HTTP, mTLS)
+
+## Operator (`clustershell/operator`)
+
+The operator manages Sandbox CRDs on Kubernetes/OpenShift clusters. It implements the kubernetes-sigs/agent-sandbox specification for CRD-based sandbox management.
+
+- **Docker target**: `operator` in `deploy/docker/Dockerfile.images`
+- **Registry**: `ghcr.io/kcns008/clustershell/operator:latest`
+- **Pulled when**: When operator is enabled via Helm (`--set operator.enabled=true`)
+- **Entrypoint**: `clustershell-operator` (watches and reconciles Sandbox CRDs)
+
+The operator is an optional component that enables:
+- **Sandbox CRDs**: Create sandboxes via `kubectl apply`
+- **Strong Isolation**: gVisor/Kata Containers RuntimeClasses
+- **Lifecycle Management**: Hibernation, warm pools, scale-to-zero
+- **Stable Identity**: Services provide stable hostnames for inter-sandbox communication
 
 ## Cluster (`clustershell/cluster`)
 
 The cluster image is a single-container Kubernetes distribution that bundles the Helm charts, Kubernetes manifests, and the `clustershell-sandbox` supervisor binary needed to bootstrap the control plane.
 
 - **Docker target**: `cluster` in `deploy/docker/Dockerfile.images`
-- **Registry**: `ghcr.io/nvidia/clustershell/cluster:latest`
+- **Registry**: `ghcr.io/kcns008/clustershell/cluster:latest`
 - **Pulled when**: `clustershell gateway start`
 
 The supervisor binary (`clustershell-sandbox`) is built by the shared `supervisor-builder` stage in `deploy/docker/Dockerfile.images` and placed at `/opt/clustershell/bin/clustershell-sandbox`. It is exposed to sandbox pods at runtime via a read-only `hostPath` volume mount — it is not baked into sandbox images.
 
 ## Sandbox Images
 
-Sandbox images are **not built in this repository**. They are maintained in the [clustershell-community](https://github.com/nvidia/clustershell-community) repository and pulled from `ghcr.io/nvidia/clustershell-community/sandboxes/` at runtime.
+Sandbox images are **not built in this repository**. They are maintained in the [clustershell-community](https://github.com/kcns008/clustershell-community) repository and pulled from `ghcr.io/kcns008/clustershell-community/sandboxes/` at runtime.
 
-The default sandbox image is `ghcr.io/nvidia/clustershell-community/sandboxes/base:latest`. To use a named community sandbox:
+The default sandbox image is `ghcr.io/kcns008/clustershell-community/sandboxes/base:latest`. To use a named community sandbox:
 
 ```bash
 clustershell sandbox create --from <name>
 ```
 
-This pulls `ghcr.io/nvidia/clustershell-community/sandboxes/<name>:latest`.
+This pulls `ghcr.io/kcns008/clustershell-community/sandboxes/<name>:latest`.
 
 ## Local Development
 
