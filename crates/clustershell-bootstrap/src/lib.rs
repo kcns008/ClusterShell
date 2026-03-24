@@ -404,7 +404,7 @@ where
     // From this point on, Docker resources (container, volume, network) are
     // being created. If any subsequent step fails, we must clean up to avoid
     // leaving an orphaned volume in a corrupted state that blocks retries.
-    // See: https://github.com/NVIDIA/ClusterShell/issues/463
+    // See: https://github.com/kcns008/ClusterShell/issues/463
     let deploy_result: Result<GatewayMetadata> = async {
         ensure_container(
             &target_docker,

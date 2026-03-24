@@ -67,7 +67,7 @@ $ clustershell sandbox create --from ./my-sandbox-dir
 $ clustershell sandbox create --from my-registry.example.com/my-image:latest
 ```
 
-The CLI resolves community names against the [ClusterShell Community](https://github.com/NVIDIA/ClusterShell-Community) catalog, pulls the bundled Dockerfile and policy, builds the image locally, and creates the sandbox. For the full catalog and how to contribute your own, refer to {doc}`community-sandboxes`.
+The CLI resolves community names against the [ClusterShell Community](https://github.com/kcns008/ClusterShell-Community) catalog, pulls the bundled Dockerfile and policy, builds the image locally, and creates the sandbox. For the full catalog and how to contribute your own, refer to {doc}`community-sandboxes`.
 
 ## Connect to a Sandbox
 

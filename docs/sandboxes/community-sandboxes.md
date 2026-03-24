@@ -32,7 +32,7 @@ own.
 ## What Are Community Sandboxes
 
 Community sandboxes are ready-to-use environments published in the
-[ClusterShell Community](https://github.com/NVIDIA/ClusterShell-Community) repository.
+[ClusterShell Community](https://github.com/kcns008/ClusterShell-Community) repository.
 Each sandbox bundles a Dockerfile, policy, optional skills, and startup scripts
 into a single package that you can launch with one command.
 
@@ -58,7 +58,7 @@ $ clustershell sandbox create --from openclaw
 When you pass `--from` with a community sandbox name, the CLI:
 
 1. Resolves the name against the
-   [ClusterShell Community](https://github.com/NVIDIA/ClusterShell-Community) repository.
+   [ClusterShell Community](https://github.com/kcns008/ClusterShell-Community) repository.
 2. Pulls the Dockerfile, policy, skills, and any startup scripts.
 3. Builds the container image locally.
 4. Creates the sandbox with the bundled configuration applied.
@@ -86,7 +86,7 @@ The `--from` flag also accepts:
 ## Contribute a Community Sandbox
 
 Each community sandbox is a directory under `sandboxes/` in the
-[ClusterShell Community](https://github.com/NVIDIA/ClusterShell-Community) repository.
+[ClusterShell Community](https://github.com/kcns008/ClusterShell-Community) repository.
 At minimum, a sandbox directory must contain the following files:
 
 - `Dockerfile` that defines the container image.
@@ -100,7 +100,7 @@ You can also include the following optional files:
 
 To contribute, fork the repository, add your sandbox directory, and open a pull
 request. Refer to the repository's
-[CONTRIBUTING.md](https://github.com/NVIDIA/ClusterShell-Community/blob/main/CONTRIBUTING.md)
+[CONTRIBUTING.md](https://github.com/kcns008/ClusterShell-Community/blob/main/CONTRIBUTING.md)
 for submission guidelines.
 
 :::{note}

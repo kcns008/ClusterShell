@@ -10,7 +10,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
-repository = "https://github.com/NVIDIA/ClusterShell"
+repository = "https://github.com/kcns008/ClusterShell"
 
 [workspace.dependencies]
 # Async runtime

@@ -41,7 +41,7 @@ For a complete list of requirements, refer to {doc}`../reference/support-matrix`
 Run the install script:
 
 ```console
-$ curl -LsSf https://raw.githubusercontent.com/NVIDIA/ClusterShell/main/install.sh | sh
+$ curl -LsSf https://raw.githubusercontent.com/kcns008/ClusterShell/main/install.sh | sh
 ```
 
 If you prefer [uv](https://docs.astral.sh/uv/):
@@ -53,7 +53,7 @@ $ uv tool install -U clustershell
 After installing the CLI, run `clustershell --help` in your terminal to see the full CLI reference, including all commands and flags.
 
 :::{tip}
-You can also clone the [NVIDIA ClusterShell GitHub repository](https://github.com/NVIDIA/ClusterShell) and use the `/clustershell-cli` skill to load the CLI reference into your agent.
+You can also clone the [ClusterShell GitHub repository](https://github.com/kcns008/ClusterShell) and use the `/clustershell-cli` skill to load the CLI reference into your agent.
 :::
 
 ## Create Your First ClusterShell Sandbox
@@ -113,7 +113,7 @@ Run the following command to create a sandbox with OpenClaw:
 $ clustershell sandbox create --from openclaw
 ```
 
-The `--from` flag pulls a pre-built sandbox definition from the [ClusterShell Community](https://github.com/NVIDIA/ClusterShell-Community) catalog.
+The `--from` flag pulls a pre-built sandbox definition from the [ClusterShell Community](https://github.com/kcns008/ClusterShell-Community) catalog.
 Each definition bundles a container image, a tailored policy, and optional skills into a single package.
 :::
 

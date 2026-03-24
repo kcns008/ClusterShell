@@ -5,7 +5,7 @@
 # Install the ClusterShell CLI binary.
 #
 # Usage:
-#   curl -LsSf https://raw.githubusercontent.com/NVIDIA/ClusterShell/main/install.sh | sh
+# curl -LsSf https://raw.githubusercontent.com/kcns008/ClusterShell/main/install.sh | sh
 #
 # Or run directly:
 #   ./install.sh
@@ -17,7 +17,7 @@
 set -eu
 
 APP_NAME="clustershell"
-REPO="NVIDIA/ClusterShell"
+REPO="kcns008/ClusterShell"
 GITHUB_URL="https://github.com/${REPO}"
 
 # ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ usage() {
 install.sh — Install the ClusterShell CLI
 
 USAGE:
-    curl -LsSf https://raw.githubusercontent.com/NVIDIA/ClusterShell/main/install.sh | sh
+    curl -LsSf https://raw.githubusercontent.com/kcns008/ClusterShell/main/install.sh | sh
     ./install.sh [OPTIONS]
 
 OPTIONS:
@@ -58,13 +58,13 @@ ENVIRONMENT VARIABLES:
 
 EXAMPLES:
     # Install latest release
-    curl -LsSf https://raw.githubusercontent.com/NVIDIA/ClusterShell/main/install.sh | sh
+    curl -LsSf https://raw.githubusercontent.com/kcns008/ClusterShell/main/install.sh | sh
 
     # Install a specific version
-    curl -LsSf https://raw.githubusercontent.com/NVIDIA/ClusterShell/main/install.sh | CLUSTERSHELL_VERSION=v0.0.9  sh
+    curl -LsSf https://raw.githubusercontent.com/kcns008/ClusterShell/main/install.sh | CLUSTERSHELL_VERSION=v0.0.9  sh
 
     # Install to /usr/local/bin
-    curl -LsSf https://raw.githubusercontent.com/NVIDIA/ClusterShell/main/install.sh | CLUSTERSHELL_INSTALL_DIR=/usr/local/bin sh
+    curl -LsSf https://raw.githubusercontent.com/kcns008/ClusterShell/main/install.sh | CLUSTERSHELL_INSTALL_DIR=/usr/local/bin sh
 EOF
 }
 

@@ -96,7 +96,7 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitHub",
-            "url": "https://github.com/NVIDIA/ClusterShell",
+            "url": "https://github.com/kcns008/ClusterShell",
             "icon": "fa-brands fa-github",
             "type": "fontawesome",
         },

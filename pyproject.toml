@@ -37,7 +37,7 @@ classifiers = [
 keywords = ["agent", "sandbox", "nvidia"]
 
 [project.urls]
-source = "https://github.com/NVIDIA/ClusterShell"
+source = "https://github.com/kcns008/ClusterShell"
 documentation = "https://docs.nvidia.com/clustershell/latest/"
 
 [dependency-groups]
