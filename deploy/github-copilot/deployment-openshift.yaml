@@ -75,11 +75,9 @@ spec:
         - /bin/sh
         - -c
         - |
-          set -e
-          
-          # Install dependencies
+          # Install dependencies (don't fail on individual errors)
           echo "Installing dependencies..."
-          apk add --no-cache git curl bash nodejs npm ttyd
+          apk add --no-cache git curl bash nodejs npm ttyd || { echo "Failed to install dependencies"; exit 1; }
           
           # Install GitHub CLI
           echo "Installing GitHub CLI..."
@@ -100,7 +98,7 @@ spec:
           if [ -n "$GH_TOKEN" ]; then
             echo "Configuring GitHub CLI with token..."
             echo "$GH_TOKEN" | gh auth login --with-token
-            gh auth status
+            gh auth status || echo "Note: Token may need additional scopes for some features"
             echo "Copilot CLI ready. Run 'copilot auth' if needed."
           else
             echo "Warning: No GitHub token provided. Run 'gh auth login' manually."
