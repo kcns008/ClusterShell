@@ -6,7 +6,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/nvidia/clustershell/gateway
+  repository: ghcr.io/nvidia/openshell/gateway
   pullPolicy: Always
   tag: "latest"
 
@@ -71,7 +71,7 @@ server:
   logLevel: info
   sandboxNamespace: clustershell
   dbUrl: "sqlite:/var/clustershell/clustershell.db"
-  sandboxImage: "ghcr.io/nvidia/clustershell-community/sandboxes/base:latest"
+  sandboxImage: "ghcr.io/nvidia/openshell-community/sandboxes/base:latest"
   # Kubernetes imagePullPolicy for sandbox pods.  Empty = Kubernetes default
   # (Always for :latest, IfNotPresent otherwise).  Set to "Always" for dev
   # clusters so new images are picked up without manual eviction.
@@ -158,7 +158,7 @@ operator:
   enabled: false
   replicaCount: 1
   image:
-    repository: ghcr.io/nvidia/clustershell/operator
+    repository: ghcr.io/nvidia/openshell/operator
     pullPolicy: Always
     tag: "latest"
   resources: {}

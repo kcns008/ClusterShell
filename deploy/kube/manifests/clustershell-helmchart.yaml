@@ -25,11 +25,11 @@ spec:
   valuesContent: |-
     chartChecksum: __CHART_CHECKSUM__
     image:
-      repository: ghcr.io/nvidia/clustershell/gateway
+      repository: ghcr.io/nvidia/openshell/gateway
       tag: latest
       pullPolicy: Always
     server:
-      sandboxImage: ghcr.io/nvidia/clustershell-community/sandboxes/base:latest
+      sandboxImage: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
       sshGatewayHost: __SSH_GATEWAY_HOST__
       sshGatewayPort: __SSH_GATEWAY_PORT__
       sshHandshakeSecret: __SSH_HANDSHAKE_SECRET__

@@ -1087,7 +1087,7 @@ enum SandboxCommands {
         /// image reference (e.g., `myregistry.com/img:tag`).
         ///
         /// Community names are resolved to
-        /// `ghcr.io/nvidia/clustershell-community/sandboxes/<name>:latest`
+        /// `ghcr.io/nvidia/openshell-community/sandboxes/<name>:latest`
         /// (override the prefix with `CLUSTERSHELL_COMMUNITY_REGISTRY`).
         ///
         /// When given a Dockerfile or directory, the image is built and pushed

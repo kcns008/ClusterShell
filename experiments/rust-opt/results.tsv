@@ -1,2 +1,3 @@
 commit	runtime_s	test_result	status	description
 e51b2c3d	1408.48	pass	keep	baseline
+125a777	924.63	pass	keep	use as_bytes() (34% faster)

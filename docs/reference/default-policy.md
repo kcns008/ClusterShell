@@ -14,7 +14,7 @@ content:
 
 # Default Policy Reference
 
-The default policy is the policy applied when you create an ClusterShell sandbox without `--policy`. It is baked into the community base image ([`ghcr.io/nvidia/clustershell-community/sandboxes/base`](https://github.com/nvidia/clustershell-community)) and defined in the community repo's `dev-sandbox-policy.yaml`.
+The default policy is the policy applied when you create an ClusterShell sandbox without `--policy`. It is baked into the community base image ([`ghcr.io/nvidia/openshell-community/sandboxes/base`](https://github.com/nvidia/clustershell-community)) and defined in the community repo's `dev-sandbox-policy.yaml`.
 
 ## Agent Compatibility
 

@@ -1393,7 +1393,7 @@ pub async fn gateway_admin_deploy(
 
         // Use default gateway image
         let image = std::env::var("CLUSTERSHELL_GATEWAY_IMAGE")
-            .unwrap_or_else(|_| "ghcr.io/nvidia/clustershell/gateway:latest".to_string());
+            .unwrap_or_else(|_| "ghcr.io/nvidia/openshell/gateway:latest".to_string());
 
         match clustershell_bootstrap::openshift::deploy_to_openshift(&openshift_opts, &image).await {
             Ok(endpoint) => {
@@ -2459,7 +2459,7 @@ pub async fn sandbox_create(
 /// Bare sandbox names (e.g., `openclaw`) are expanded to
 /// `{prefix}/{name}:latest` using this value.  Override with the
 /// `CLUSTERSHELL_COMMUNITY_REGISTRY` environment variable.
-const DEFAULT_COMMUNITY_REGISTRY: &str = "ghcr.io/nvidia/clustershell-community/sandboxes";
+const DEFAULT_COMMUNITY_REGISTRY: &str = "ghcr.io/nvidia/openshell-community/sandboxes";
 
 /// Resolved source for the `--from` flag on `sandbox create`.
 enum ResolvedSource {
@@ -5222,7 +5222,7 @@ mod tests {
     #[test]
     fn image_requests_gpu_matches_known_gpu_image_names() {
         for image in [
-            "ghcr.io/nvidia/clustershell-community/sandboxes/nvidia-gpu:latest",
+            "ghcr.io/nvidia/openshell-community/sandboxes/nvidia-gpu:latest",
             "registry.example.com/team/gpu:dev",
             "nvcr.io/example/my-gpu-image@sha256:deadbeef",
         ] {
@@ -5236,7 +5236,7 @@ mod tests {
     #[test]
     fn image_requests_gpu_ignores_non_gpu_image_names() {
         for image in [
-            "ghcr.io/nvidia/clustershell-community/sandboxes/base:latest",
+            "ghcr.io/nvidia/openshell-community/sandboxes/base:latest",
             "registry.example.com/gpu/team/base:latest",
             "registry.example.com/team/openclaw:latest",
             "cuda-toolkit:latest",

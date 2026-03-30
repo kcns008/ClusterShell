@@ -8,7 +8,7 @@ The `--from` flag accepts four kinds of input:
 
 | Input | Example | Behavior |
 |-------|---------|----------|
-| **Community sandbox name** | `--from openclaw` | Resolves to `ghcr.io/nvidia/clustershell-community/sandboxes/openclaw:latest` |
+| **Community sandbox name** | `--from openclaw` | Resolves to `ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest` |
 | **Dockerfile path** | `--from ./Dockerfile` | Builds the image, pushes it into the cluster, then creates the sandbox |
 | **Directory with Dockerfile** | `--from ./my-sandbox/` | Uses the directory as the build context |
 | **Full image reference** | `--from myregistry.com/img:tag` | Uses the image directly |
@@ -22,11 +22,11 @@ The CLI classifies the value in this order:
 3. **Contains `/`, `:`, or `.`** — treated as a full container image reference.
 4. **Otherwise** — treated as a community sandbox name, expanded to `{CLUSTERSHELL_COMMUNITY_REGISTRY}/{name}:latest`.
 
-The community registry prefix defaults to `ghcr.io/nvidia/clustershell-community/sandboxes` and can be overridden with the `CLUSTERSHELL_COMMUNITY_REGISTRY` environment variable.
+The community registry prefix defaults to `ghcr.io/nvidia/openshell-community/sandboxes` and can be overridden with the `CLUSTERSHELL_COMMUNITY_REGISTRY` environment variable.
 
 ### GPU image-name detection
 
-`sandbox create` also infers GPU intent from the final image name. The current rule matches when the last image name component contains `gpu` (for example `ghcr.io/nvidia/clustershell-community/sandboxes/nvidia-gpu:latest` or `registry.example.com/team/my-gpu-image:latest`). When that rule matches, the sandbox request is treated the same as passing `--gpu`.
+`sandbox create` also infers GPU intent from the final image name. The current rule matches when the last image name component contains `gpu` (for example `ghcr.io/nvidia/openshell-community/sandboxes/nvidia-gpu:latest` or `registry.example.com/team/my-gpu-image:latest`). When that rule matches, the sandbox request is treated the same as passing `--gpu`.
 
 ### Dockerfile build flow
 

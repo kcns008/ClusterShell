@@ -12,7 +12,7 @@
 //!
 //! Prerequisites:
 //! - A running clustershell gateway (`clustershell gateway start`)
-//! - Network access to ghcr.io/nvidia/clustershell-community/sandboxes/
+//! - Network access to ghcr.io/nvidia/openshell-community/sandboxes/
 
 use clustershell_e2e::harness::output::strip_ansi;
 use clustershell_e2e::harness::sandbox::SandboxGuard;
@@ -20,7 +20,7 @@ use clustershell_e2e::harness::sandbox::SandboxGuard;
 /// Create a sandbox using the community `base` image and verify it works.
 ///
 /// The `--from base` argument should resolve to:
-/// `ghcr.io/nvidia/clustershell-community/sandboxes/base:latest`
+/// `ghcr.io/nvidia/openshell-community/sandboxes/base:latest`
 #[tokio::test]
 async fn sandbox_from_community_base_image() {
     // Create a sandbox using the community "base" image.
@@ -44,7 +44,7 @@ async fn sandbox_from_community_base_image() {
 /// This tests that explicit image references work correctly.
 #[tokio::test]
 async fn sandbox_from_explicit_ghcr_image() {
-    let image = "ghcr.io/nvidia/clustershell-community/sandboxes/base:latest";
+    let image = "ghcr.io/nvidia/openshell-community/sandboxes/base:latest";
 
     let mut guard = SandboxGuard::create(&["--from", image, "--", "cat", "/etc/os-release"])
         .await
