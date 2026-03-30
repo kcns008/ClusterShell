@@ -17,6 +17,9 @@ pub mod paths;
 pub mod proto;
 pub mod settings;
 
+#[cfg(test)]
+mod experiment;
+
 pub use config::{Config, TlsConfig};
 pub use error::{Error, Result};
 
