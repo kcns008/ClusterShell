@@ -16,15 +16,15 @@ mod benches {
         let mut checksum: u64 = 0;
         
         for (key, value) in entries {
-            // Hash the key - use u32 arithmetic to avoid overflow checks
+            // Hash the key - use .as_bytes() to avoid UTF-8 validation overhead
             let mut key_hash: u32 = 0;
-            for b in key.bytes() {
+            for &b in key.as_bytes() {
                 key_hash = key_hash.wrapping_mul(31).wrapping_add(b as u32);
             }
             
             // Parse the value (simulating config parsing)
             let mut value_hash: u32 = 0;
-            for b in value.bytes() {
+            for &b in value.as_bytes() {
                 value_hash = value_hash.wrapping_mul(17).wrapping_add(b as u32);
             }
             
