@@ -1,96 +1,109 @@
-# OpenShift Deployment for GitHub CLI
-# This manifest is compatible with both Kubernetes and OpenShift
+# OpenShift Deployment for GitHub Copilot CLI
+# Includes web terminal via ttyd
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: github-cli
+  name: github-copilot-cli
   namespace: github-copilot
   labels:
-    app: github-cli
-    app.kubernetes.io/name: github-cli
+    app: github-copilot-cli
+    app.kubernetes.io/name: github-copilot-cli
     app.kubernetes.io/component: cli
     app.kubernetes.io/managed-by: clustershell
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: github-cli
+      app: github-copilot-cli
   template:
     metadata:
       labels:
-        app: github-cli
-        app.kubernetes.io/name: github-cli
+        app: github-copilot-cli
     spec:
-      # OpenShift Security Context
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - name: gh-cli
+      - name: copilot-cli
         image: alpine:3.19
         command: 
         - /bin/sh
         - -c
         - |
-          apk add --no-cache git curl bash
+          # Install dependencies
+          apk add --no-cache git curl bash nodejs npm ttyd
+          
+          # Install GitHub CLI
           curl -sSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o /tmp/gh.tar.gz
           tar -xzf /tmp/gh.tar.gz -C /tmp
           cp /tmp/gh_2.40.1_linux_amd64/bin/gh /usr/local/bin/gh
           chmod +x /usr/local/bin/gh
           rm -rf /tmp/gh*
-          echo "GitHub CLI installed: $(gh version)"
+          
+          # Install GitHub Copilot CLI extension
+          npm install -g @githubnext/github-copilot-cli
+          
+          echo "=========================================="
+          echo "GitHub CLI: $(gh version --short)"
+          echo "Copilot CLI: $(copilot --version 2>/dev/null || echo 'installed')"
+          echo "Web Terminal: http://localhost:7681"
+          echo "=========================================="
+          
+          # Start ttyd for web terminal access
+          ttyd -W /bin/bash &
+          
+          # Keep container running
           sleep infinity
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
-          runAsUser: 1000
+        ports:
+        - containerPort: 7681
+          name: web-terminal
+          protocol: TCP
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
             memory: "256Mi"
-            cpu: "250m"
-        volumeMounts:
-        - name: gh-config
-          mountPath: /home/ghuser/.config/gh
-      volumes:
-      - name: gh-config
-        emptyDir: {}
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
 ---
-# OpenShift Route (alternative to Ingress)
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: github-cli
-  namespace: github-copilot
-  labels:
-    app: github-cli
-spec:
-  to:
-    kind: Service
-    name: github-cli
-  port:
-    targetPort: http
-  tls:
-    termination: edge
-  wildcardPolicy: None
----
-# Service for internal communication
 apiVersion: v1
 kind: Service
 metadata:
-  name: github-cli
+  name: github-copilot-cli
   namespace: github-copilot
 spec:
   selector:
-    app: github-cli
+    app: github-copilot-cli
   ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
+  - name: web-terminal
+    port: 7681
+    targetPort: 7681
   type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: github-copilot-cli
+  namespace: github-copilot
+  labels:
+    app: github-copilot-cli
+  annotations:
+    haproxy.router.openshift.io/timeout: "1h"
+    haproxy.router.openshift.io/websocket: "true"
+spec:
+  to:
+    kind: Service
+    name: github-copilot-cli
+  port:
+    targetPort: web-terminal
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

@@ -1,39 +1,101 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: github-cli
+  name: github-copilot-cli
   namespace: github-copilot
   labels:
-    app: github-cli
+    app: github-copilot-cli
+    app.kubernetes.io/name: github-copilot-cli
+    app.kubernetes.io/component: cli
+    app.kubernetes.io/managed-by: clustershell
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: github-cli
+      app: github-copilot-cli
   template:
     metadata:
       labels:
-        app: github-cli
+        app: github-copilot-cli
     spec:
       containers:
-      - name: gh-cli
+      - name: copilot-cli
         image: alpine:3.19
         command: 
         - /bin/sh
         - -c
         - |
-          apk add --no-cache git curl bash
+          # Install dependencies
+          apk add --no-cache git curl bash nodejs npm ttyd
+          
+          # Install GitHub CLI
           curl -sSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o /tmp/gh.tar.gz
           tar -xzf /tmp/gh.tar.gz -C /tmp
           cp /tmp/gh_2.40.1_linux_amd64/bin/gh /usr/local/bin/gh
           chmod +x /usr/local/bin/gh
           rm -rf /tmp/gh*
-          echo "GitHub CLI installed: $(gh version)"
-          sleep infinity
+          
+          # Install GitHub Copilot CLI
+          npm install -g @githubnext/github-copilot-cli
+          
+          # Create copilot symlink
+          ln -sf /usr/local/bin/github-copilot-cli /usr/local/bin/copilot
+          
+          echo "=========================================="
+          echo "GitHub CLI: $(gh version --short)"
+          echo "Copilot CLI: $(github-copilot-cli --version 2>&1 | head -1)"
+          echo "Web Terminal: http://localhost:7681"
+          echo "=========================================="
+          
+          # Start ttyd for web terminal access
+          exec ttyd -W /bin/bash
+        ports:
+        - containerPort: 7681
+          name: web-terminal
+          protocol: TCP
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-copilot-cli
+  namespace: github-copilot
+spec:
+  selector:
+    app: github-copilot-cli
+  ports:
+  - name: web-terminal
+    port: 7681
+    targetPort: 7681
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: github-copilot-cli
+  namespace: github-copilot
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/websocket-services: github-copilot-cli
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: copilot.dev-barn.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: github-copilot-cli
+            port:
+              number: 7681
