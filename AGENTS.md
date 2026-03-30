@@ -24,6 +24,18 @@ These pipelines connect skills into end-to-end workflows. Individual skill files
   - Review produces a severity assessment and remediation plan. Fix implements it. Both require the `topic:security` label; fix also requires `state:agent-ready`.
 - **Policy iteration:** `clustershell-cli` → `generate-sandbox-policy`
   - CLI manages the sandbox lifecycle; policy generation authors the YAML constraints.
+- **Autonomous research:** `autonomous-experiment` → `experiment-tracking`
+  - Run autonomous experiments with fixed time budgets (inspired by autoresearch). Track results, compare approaches, iterate continuously.
+
+## Experiments
+
+ClusterShell supports autonomous experimentation workflows inspired by [autoresearch](https://github.com/karpathy/autoresearch). See:
+
+- `experiments/program.md` - Template for agent instruction files
+- `experiments/results.tsv` - Experiment result log
+- `.agents/skills/autonomous-experiment/SKILL.md` - Running experiment loops
+- `.agents/skills/experiment-tracking/SKILL.md` - Analyzing results
+- `examples/autoresearch-integration.md` - Running autoresearch in sandboxes
 
 ## Architecture Overview
 

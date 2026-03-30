@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package openshell.datamodel.v1;
+package clustershell.datamodel.v1;
 
 import "google/protobuf/struct.proto";
 import "sandbox.proto";
@@ -28,7 +28,7 @@ message SandboxSpec {
   map<string, string> environment = 5;
   SandboxTemplate template = 6;
   // Required sandbox policy configuration.
-  openshell.sandbox.v1.SandboxPolicy policy = 7;
+  clustershell.sandbox.v1.SandboxPolicy policy = 7;
   // Provider names to attach to this sandbox.
   repeated string providers = 8;
   // Request NVIDIA GPU resources for this sandbox.

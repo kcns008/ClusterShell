@@ -8,11 +8,10 @@
 
 use crate::pki::PkiBundle;
 use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Secret, ServiceAccount};
-use kube::api::{Api, DeleteParams, ObjectMeta, Patch, PatchParams, PostParams};
+use kube::api::{Api, DeleteParams, ObjectMeta, PostParams};
 use kube::config::KubeConfigOptions;
 use kube::Config;
 use miette::{IntoDiagnostic, Result};
-use serde_json::json;
 use std::collections::BTreeMap;
 
 /// OpenShift deployment configuration
@@ -105,16 +104,23 @@ impl OpenShiftOptions {
 }
 
 /// OpenShift cluster client
-#[derive(Debug)]
 pub struct OpenShiftClient {
     client: kube::Client,
     namespace: String,
 }
 
+impl std::fmt::Debug for OpenShiftClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenShiftClient")
+            .field("namespace", &self.namespace)
+            .finish_non_exhaustive()
+    }
+}
+
 impl OpenShiftClient {
     /// Create a new OpenShift client from options
     pub async fn new(options: &OpenShiftOptions) -> Result<Self> {
-        let mut config = if let Some(kubeconfig) = &options.kubeconfig {
+        let mut config = if let Some(_kubeconfig) = &options.kubeconfig {
             Config::from_kubeconfig(&KubeConfigOptions {
                 context: options.context.clone(),
                 cluster: options.server.clone(),
@@ -236,7 +242,7 @@ impl OpenShiftClient {
     /// Deploy ClusterShell gateway components
     pub async fn deploy_gateway(
         &self,
-        image: &str,
+        _image: &str,
         options: &OpenShiftOptions,
     ) -> Result<String> {
         // Create service account

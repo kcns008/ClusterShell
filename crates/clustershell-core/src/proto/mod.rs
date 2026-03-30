@@ -71,3 +71,8 @@ pub use inference::v1::*;
 pub use clustershell::*;
 pub use sandbox::v1::*;
 pub use test::ObjectForTest;
+
+// Backward compatibility alias for the renamed client module
+pub mod open_shell_client {
+    pub use super::cluster_shell_client::*;
+}

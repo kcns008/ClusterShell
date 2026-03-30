@@ -78,6 +78,8 @@ Skills live in `.agents/skills/`. Your agent's harness can discover and load the
 | Triage          | `triage-issue`            | Assess, classify, and route community-filed issues                                                  |
 | Platform        | `generate-sandbox-policy` | Generate YAML sandbox policies from requirements or API docs                                        |
 | Platform        | `tui-development`         | Development guide for the ratatui-based terminal UI                                                 |
+| Experiments     | `autonomous-experiment`   | Run autonomous experiments with fixed time budgets (autoresearch pattern)                           |
+| Experiments     | `experiment-tracking`     | Track, analyze, and compare experiment results                                                      |
 | Documentation   | `update-docs`             | Scan recent commits and draft doc updates for user-facing changes                                   |
 | Maintenance     | `sync-agent-infra`        | Detect and fix drift across agent-first infrastructure files                                        |
 | Reference       | `sbom`                    | Generate SBOMs and resolve dependency licenses                                                      |
@@ -90,6 +92,7 @@ Skills connect into pipelines. Individual skill files don't describe these relat
 - **Internal development:** `create-spike` → `build-from-issue`
 - **Security:** `review-security-issue` → `fix-security-issue`
 - **Policy iteration:** `clustershell-cli` → `generate-sandbox-policy`
+- **Autonomous research:** `autonomous-experiment` → `experiment-tracking`
 
 Workflow state labels use the `state:*` prefix, and security work uses `topic:security`. GitHub issue templates assign built-in issue types where applicable, and agent-created issues should use issue types or manual follow-up rather than type labels.
 
