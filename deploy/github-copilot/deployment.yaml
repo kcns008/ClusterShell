@@ -67,6 +67,12 @@ spec:
               name: github-copilot-token
               key: token
               optional: true
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-copilot-token
+              key: token
+              optional: true
         command: 
         - /bin/sh
         - -c
@@ -95,7 +101,8 @@ spec:
             echo "Configuring GitHub CLI with token..."
             echo "$GH_TOKEN" | gh auth login --with-token
             gh auth status || echo "Note: Token may need additional scopes for some features"
-            echo "Copilot CLI ready. Run 'copilot auth' if needed."
+            echo ""
+            echo "GitHub CLI configured. For Copilot CLI, run: copilot auth"
           else
             echo "Warning: No GitHub token provided. Run 'gh auth login' manually."
           fi

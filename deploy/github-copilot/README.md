@@ -7,10 +7,15 @@ Browser-accessible GitHub Copilot CLI with web terminal (ttyd).
 - **GitHub CLI (gh)** v2.40.1
 - **GitHub Copilot CLI** v0.1.36
 - **Web Terminal** via ttyd for browser access
-- **Auto-authentication** using GitHub token from secret
+- **Auto-authentication** for GitHub CLI using GH_TOKEN
 - **TLS** via cert-manager (Kubernetes) or OpenShift Router
 
 ## Prerequisites
+
+### GitHub Copilot Subscription
+You must have an active GitHub Copilot subscription:
+- Individual: https://github.com/features/copilot
+- Business: https://github.com/features/copilot/business
 
 ### Kubernetes
 1. cert-manager with `letsencrypt-issuer` cluster issuer
@@ -31,10 +36,10 @@ kubectl create namespace github-copilot
 
 ```bash
 # Create a GitHub Personal Access Token with repo and copilot scopes
-# https://github.com/settings/tokens
+# https://github.com/settings/tokens/new?scopes=repo,copilot
 
 kubectl create secret generic github-copilot-token \
-  --from-literal=token=ghp_YOUR_TOKEN_HERE \
+  --from-literal=token=ghp_YOUR_TOKEN \
   -n github-copilot
 ```
 
@@ -48,7 +53,28 @@ kubectl apply -f deployment.yaml
 kubectl apply -k .
 ```
 
-### 4. Access Web Terminal
+### 4. Authenticate Copilot CLI
+
+**IMPORTANT:** The Copilot CLI requires separate authentication (device flow).
+
+1. Open the web terminal: https://copilot.9ci.dev
+
+2. Run the auth command:
+   ```bash
+   copilot auth
+   ```
+
+3. Complete the device flow:
+   - Copy the code shown (e.g., `ABCD-EFGH`)
+   - Go to https://github.com/login/device
+   - Paste the code and authorize
+
+4. Test it works:
+   ```bash
+   copilot what-the-shell "list all files larger than 100MB"
+   ```
+
+### 5. Access Web Terminal
 
 Add to `/etc/hosts`:
 ```
@@ -64,9 +90,9 @@ Open: https://copilot.9ci.dev
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TTYD_PORT` | 7681 | Web terminal port |
-| `TTYD_THEME` | dark | ttyd theme |
 | `HOSTNAME` | copilot.9ci.dev | Public hostname |
-| `GH_TOKEN` | (from secret) | GitHub token |
+| `GH_TOKEN` | (from secret) | GitHub PAT for gh CLI |
+| `GITHUB_TOKEN` | (from secret) | GitHub PAT (alternate) |
 
 ### Resources
 
@@ -98,16 +124,14 @@ ga 'query'     # copilot git-assist
 gha 'query'    # copilot gh-assist
 ```
 
-### Manual Authentication
+### GitHub CLI
 
-If you didn't provide a token:
+The `gh` CLI is authenticated automatically with your token:
 
 ```bash
-# GitHub CLI
-gh auth login
-
-# Copilot CLI
-copilot auth
+gh repo list
+gh issue list
+gh pr create
 ```
 
 ## Architecture
@@ -134,8 +158,8 @@ copilot auth
 │                             │ /bin/bash                           │
 │  ┌──────────────────────────┴──────────────────────────────────┐ │
 │  │                    Copilot CLI Tools                         │ │
-│  │  - gh (GitHub CLI)                                          │ │
-│  │  - copilot (GitHub Copilot CLI)                             │ │
+│  │  - gh (GitHub CLI) - auto-auth via GH_TOKEN                 │ │
+│  │  - copilot (GitHub Copilot CLI) - run `copilot auth`        │ │
 │  │  - git, curl, bash                                          │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
@@ -166,10 +190,7 @@ spec:
 Edit the bashrc section in the deployment:
 
 ```bash
-cat > /root/.bashrc << 'BASHRC'
-alias myalias='my command'
-# ... more aliases
-BASHRC
+echo "alias myalias='my command'" >> /root/.bashrc
 ```
 
 ## Troubleshooting
@@ -183,7 +204,11 @@ kubectl logs -f deployment/github-copilot-cli -n github-copilot
 ### Check Authentication
 
 ```bash
+# GitHub CLI
 kubectl exec deployment/github-copilot-cli -n github-copilot -- gh auth status
+
+# Copilot CLI (requires device flow)
+kubectl exec -it deployment/github-copilot-cli -n github-copilot -- copilot auth
 ```
 
 ### Restart Pod
@@ -191,6 +216,13 @@ kubectl exec deployment/github-copilot-cli -n github-copilot -- gh auth status
 ```bash
 kubectl rollout restart deployment/github-copilot-cli -n github-copilot
 ```
+
+### "Authentication error" from Copilot CLI
+
+This means you need to run `copilot auth` in the web terminal:
+1. Open https://copilot.9ci.dev
+2. Run `copilot auth`
+3. Complete the device flow
 
 ## OpenShift Deployment
 

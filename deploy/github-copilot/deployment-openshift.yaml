@@ -71,6 +71,12 @@ spec:
               name: github-copilot-token
               key: token
               optional: true
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-copilot-token
+              key: token
+              optional: true
         command: 
         - /bin/sh
         - -c
