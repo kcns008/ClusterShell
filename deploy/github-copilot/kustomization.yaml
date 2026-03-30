@@ -8,3 +8,10 @@ resources:
 
 commonLabels:
   app.kubernetes.io/managed-by: clustershell
+
+# Secret generator (uncomment and set token)
+# secretGenerator:
+# - name: github-copilot-token
+#   namespace: github-copilot
+#   literals:
+#   - token=YOUR_GITHUB_TOKEN_HERE
