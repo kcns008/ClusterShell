@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-cli
+  namespace: github-copilot
+  labels:
+    app: github-cli
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-cli
+  template:
+    metadata:
+      labels:
+        app: github-cli
+    spec:
+      containers:
+      - name: gh-cli
+        image: alpine:3.19
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache git curl bash
+          curl -sSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o /tmp/gh.tar.gz
+          tar -xzf /tmp/gh.tar.gz -C /tmp
+          cp /tmp/gh_2.40.1_linux_amd64/bin/gh /usr/local/bin/gh
+          chmod +x /usr/local/bin/gh
+          rm -rf /tmp/gh*
+          echo "GitHub CLI installed: $(gh version)"
+          sleep infinity
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"

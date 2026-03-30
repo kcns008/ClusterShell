@@ -1,0 +1,96 @@
+# OpenShift Deployment for GitHub CLI
+# This manifest is compatible with both Kubernetes and OpenShift
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-cli
+  namespace: github-copilot
+  labels:
+    app: github-cli
+    app.kubernetes.io/name: github-cli
+    app.kubernetes.io/component: cli
+    app.kubernetes.io/managed-by: clustershell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-cli
+  template:
+    metadata:
+      labels:
+        app: github-cli
+        app.kubernetes.io/name: github-cli
+    spec:
+      # OpenShift Security Context
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: gh-cli
+        image: alpine:3.19
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache git curl bash
+          curl -sSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o /tmp/gh.tar.gz
+          tar -xzf /tmp/gh.tar.gz -C /tmp
+          cp /tmp/gh_2.40.1_linux_amd64/bin/gh /usr/local/bin/gh
+          chmod +x /usr/local/bin/gh
+          rm -rf /tmp/gh*
+          echo "GitHub CLI installed: $(gh version)"
+          sleep infinity
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsUser: 1000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        volumeMounts:
+        - name: gh-config
+          mountPath: /home/ghuser/.config/gh
+      volumes:
+      - name: gh-config
+        emptyDir: {}
+---
+# OpenShift Route (alternative to Ingress)
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: github-cli
+  namespace: github-copilot
+  labels:
+    app: github-cli
+spec:
+  to:
+    kind: Service
+    name: github-cli
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  wildcardPolicy: None
+---
+# Service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-cli
+  namespace: github-copilot
+spec:
+  selector:
+    app: github-cli
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
