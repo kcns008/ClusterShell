@@ -52,7 +52,7 @@ graph TB
 
     subgraph EXT["External"]
         AI["AI Providers"]
-        REGISTRY["ghcr.io/kcns008"]
+        REGISTRY["ghcr.io/nvidia"]
     end
 
     CLI -->|gRPC/mTLS| GATEWAY
@@ -87,7 +87,7 @@ spec:
     spec:
       containers:
       - name: sandbox
-        image: ghcr.io/kcns008/clustershell-community/sandboxes/base:latest
+        image: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
         resources:
           limits:
             memory: "4Gi"
@@ -120,7 +120,7 @@ spec:
     spec:
       containers:
       - name: sandbox
-        image: ghcr.io/kcns008/clustershell-community/sandboxes/base:latest
+        image: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
         env:
         - name: ANTHROPIC_API_KEY
           valueFrom:
@@ -469,7 +469,7 @@ spec:
     spec:
       containers:
       - name: sandbox
-        image: ghcr.io/kcns008/clustershell-community/sandboxes/base:latest
+        image: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
 EOF
 
 # Check status

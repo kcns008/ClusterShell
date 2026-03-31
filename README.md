@@ -69,7 +69,7 @@ kind: Sandbox
 metadata:
   name: my-sandbox
 spec:
-  image: ghcr.io/kcns008/clustershell-community/sandboxes/base:latest
+  image: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
   agent: claude
   networkPolicy:
     egress:
