@@ -34,7 +34,7 @@ When creating a new AI agent deployment, replace these placeholders:
 | `{{AGENT_DISPLAY}}` | Display name | `GitHub Copilot CLI` |
 | `{{AGENT_IMAGE}}` | Container image | `alpine:3.19` |
 | `{{AGENT_NAMESPACE}}` | Kubernetes namespace | `ai-agents` |
-| `{{AGENT_HOST}}` | Public hostname | `copilot.9ci.dev` |
+| `{{AGENT_HOST}}` | Public hostname | `agent.example.com` |
 | `{{SECRET_NAME}}` | Secret containing API key | `github-copilot-token` |
 | `{{SECRET_KEY}}` | Key in secret | `token` |
 | `{{INSTALL_SCRIPT}}` | Installation commands | See below |
@@ -53,7 +53,7 @@ cd deploy/your-agent-name
 ```bash
 sed -i 's/{{AGENT_NAME}}/your-agent-name/g' *.yaml
 sed -i 's/{{AGENT_DISPLAY}}/Your Agent Name/g' *.yaml
-sed -i 's/{{AGENT_HOST}}/your-agent.9ci.dev/g' *.yaml
+sed -i 's/{{AGENT_HOST}}/agent.example.com/g' *.yaml
 ```
 
 ### 3. Create Secret

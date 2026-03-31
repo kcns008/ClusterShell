@@ -1,10 +1,29 @@
 # GitHub Copilot CLI Deployment
-# Includes web terminal (ttyd) and auto-authentication
+# Browser-accessible AI assistant with web terminal (ttyd)
 #
 # Prerequisites:
-# 1. Create secret: kubectl create secret generic github-copilot-token --from-literal=token=<YOUR_GITHUB_TOKEN> -n github-copilot
-# 2. Ensure cert-manager is installed with letsencrypt-issuer
+# 1. Kubernetes cluster with nginx ingress controller
+# 2. cert-manager with a cluster issuer (e.g., letsencrypt-issuer)
+# 3. GitHub Personal Access Token with 'repo' and 'copilot' scopes
+# 4. Active GitHub Copilot subscription (https://github.com/features/copilot)
+#
+# Quick Start:
+#   kubectl apply -f deployment.yaml
+#   kubectl create secret generic github-copilot-token --from-literal=token=YOUR_TOKEN -n github-copilot
+#
+# Customize:
+#   - Change HOSTNAME in ConfigMap to your domain
+#   - Update Ingress host and TLS settings
+#   - Adjust resource limits as needed
 
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: github-copilot
+  labels:
+    app.kubernetes.io/name: github-copilot
+    app.kubernetes.io/managed-by: clustershell
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -17,7 +36,8 @@ metadata:
     app.kubernetes.io/managed-by: clustershell
 data:
   TTYD_PORT: "7681"
-  HOSTNAME: "copilot.9ci.dev"
+  # Change this to your domain
+  HOSTNAME: "copilot.example.com"
 ---
 apiVersion: v1
 kind: Secret
@@ -30,7 +50,6 @@ metadata:
     app.kubernetes.io/managed-by: clustershell
 type: Opaque
 stringData:
-  # GitHub Personal Access Token with repo and copilot scopes
   # Create with: kubectl create secret generic github-copilot-token --from-literal=token=<YOUR_TOKEN> -n github-copilot
   # Required scopes: repo, copilot
   # Note: Requires active GitHub Copilot subscription
@@ -79,68 +98,68 @@ spec:
         - /bin/sh
         - -c
         - |
-          # Install dependencies (don't fail on individual errors)
+          set -e
+          
+          # Install dependencies
           echo "Installing dependencies..."
-          apk add --no-cache git curl bash nodejs npm ttyd || { echo "Failed to install dependencies"; exit 1; }
+          apk add --no-cache git curl bash nodejs npm ttyd
           
           # Install GitHub CLI
           echo "Installing GitHub CLI..."
-          curl -sSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o /tmp/gh.tar.gz
+          GH_VERSION="2.40.1"
+          curl -sSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" -o /tmp/gh.tar.gz
           tar -xzf /tmp/gh.tar.gz -C /tmp
-          cp /tmp/gh_2.40.1_linux_amd64/bin/gh /usr/local/bin/gh
+          cp "/tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
           chmod +x /usr/local/bin/gh
           rm -rf /tmp/gh*
           
           # Install GitHub Copilot CLI
           echo "Installing GitHub Copilot CLI..."
           npm install -g @githubnext/github-copilot-cli
-          
-          # Create copilot symlink
           ln -sf /usr/local/bin/github-copilot-cli /usr/local/bin/copilot
           
-          # Configure gh CLI if token is available
+          # Configure GitHub CLI if token is available
           if [ -n "$GH_TOKEN" ]; then
             echo "Configuring GitHub CLI with token..."
             echo "$GH_TOKEN" | gh auth login --with-token
-            gh auth status || echo "Note: Token may need additional scopes for some features"
-            echo ""
+            gh auth status || echo "Note: Token may need additional scopes"
             
-            # Create Copilot config directory and token file
+            # Create Copilot config
             mkdir -p /root/.config/github-copilot
             echo "$GH_TOKEN" > /root/.config/github-copilot/token
             chmod 600 /root/.config/github-copilot/token
-            echo "Copilot token stored in /root/.config/github-copilot/token"
-            echo ""
-            echo "GitHub CLI configured. Copilot CLI ready!"
+            echo "Copilot CLI ready!"
           else
-            echo "Warning: No GitHub token provided. Run 'gh auth login' manually."
+            echo "Warning: No GitHub token. Run 'gh auth login' manually."
           fi
           
-          # Create bashrc with aliases
-          echo '# GitHub Copilot CLI aliases' > /root/.bashrc
-          echo "alias wts='copilot what-the-shell'" >> /root/.bashrc
-          echo "alias ga='copilot git-assist'" >> /root/.bashrc
-          echo "alias gha='copilot gh-assist'" >> /root/.bashrc
-          echo '' >> /root/.bashrc
-          echo 'copilot-help() {' >> /root/.bashrc
-          echo '  echo "GitHub Copilot CLI Commands:"' >> /root/.bashrc
-          echo '  echo "  wts \"query\"  - Shell commands from natural language"' >> /root/.bashrc
-          echo '  echo "  ga \"query\"   - Git commands from descriptions"' >> /root/.bashrc
-          echo '  echo "  gha \"query\"  - GitHub CLI commands"' >> /root/.bashrc
-          echo '}' >> /root/.bashrc
+          # Setup shell aliases
+          cat > /root/.bashrc << 'EOF'
+          # GitHub Copilot CLI aliases
+          alias wts='copilot what-the-shell'
+          alias ga='copilot git-assist'
+          alias gha='copilot gh-assist'
+          
+          copilot-help() {
+            echo "GitHub Copilot CLI Commands:"
+            echo "  wts 'query'   - Shell commands from natural language"
+            echo "  ga 'query'    - Git commands from descriptions"
+            echo "  gha 'query'   - GitHub CLI commands"
+            echo ""
+            echo "Example: wts 'find all files larger than 100MB'"
+          }
+          EOF
           
           echo ""
           echo "=========================================="
-          echo "GitHub CLI: $(gh version --short 2>/dev/null || echo 'installed')"
-          echo "Copilot CLI: $(copilot --version 2>&1 | head -1 || echo 'installed')"
-          echo "Web Terminal: https://${HOSTNAME:-copilot.9ci.dev}"
+          echo "GitHub CLI: $(gh version --short 2>/dev/null)"
+          echo "Copilot CLI: $(copilot --version 2>&1 | head -1)"
+          echo "Web Terminal: https://${HOSTNAME}"
           echo "=========================================="
           echo ""
-          echo "Type 'copilot-help' for usage information"
-          echo ""
           
-          # Start ttyd for web terminal access
-          exec ttyd -W -p 7681 /bin/bash
+          # Start web terminal
+          exec ttyd -W -p ${TTYD_PORT:-7681} /bin/bash
         ports:
         - containerPort: 7681
           name: web-terminal
@@ -189,18 +208,18 @@ metadata:
   labels:
     app: github-copilot-cli
   annotations:
+    # Update cluster-issuer name to match your cert-manager setup
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/websocket-services: github-copilot-cli
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
   ingressClassName: nginx
   rules:
-  - host: copilot.9ci.dev
+  # Change to your domain
+  - host: copilot.example.com
     http:
       paths:
       - path: /
@@ -211,6 +230,7 @@ spec:
             port:
               number: 7681
   tls:
+  # Change to your domain
   - hosts:
-    - copilot.9ci.dev
+    - copilot.example.com
     secretName: github-copilot-cli-tls

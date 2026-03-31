@@ -5,105 +5,73 @@ Browser-accessible GitHub Copilot CLI with web terminal (ttyd).
 ## Features
 
 - **GitHub CLI (gh)** v2.40.1
-- **GitHub Copilot CLI** v0.1.36
+- **GitHub Copilot CLI** (latest)
 - **Web Terminal** via ttyd for browser access
 - **Auto-authentication** for GitHub CLI using GH_TOKEN
 - **TLS** via cert-manager (Kubernetes) or OpenShift Router
 
 ## Prerequisites
 
-### GitHub Copilot Subscription
-You must have an active GitHub Copilot subscription:
-- Individual: https://github.com/features/copilot
-- Business: https://github.com/features/copilot/business
+### Required
+1. Kubernetes cluster with nginx ingress controller, **OR** OpenShift 4.x
+2. GitHub Personal Access Token with `repo` and `copilot` scopes
+3. **Active GitHub Copilot subscription** (https://github.com/features/copilot)
 
 ### Kubernetes
-1. cert-manager with `letsencrypt-issuer` cluster issuer
-2. nginx ingress controller
+- cert-manager with a cluster issuer (e.g., `letsencrypt-issuer`)
 
 ### OpenShift
-1. OpenShift Router configured
+- OpenShift Router configured
 
 ## Quick Start
 
-### 1. Create Namespace
+### 1. Deploy to Kubernetes
 
 ```bash
-kubectl create namespace github-copilot
-```
+# Apply the deployment
+kubectl apply -f deployment.yaml
 
-### 2. Create GitHub Token Secret
-
-```bash
-# Create a GitHub Personal Access Token with repo and copilot scopes
-# https://github.com/settings/tokens/new?scopes=repo,copilot
-
+# Create secret with your GitHub token
 kubectl create secret generic github-copilot-token \
   --from-literal=token=ghp_YOUR_TOKEN \
   -n github-copilot
 ```
 
-### 3. Deploy
+### 2. Or Deploy to OpenShift
 
 ```bash
-# Using kubectl
-kubectl apply -f deployment.yaml
+# Apply the deployment
+oc apply -f deployment-openshift.yaml
 
-# Or using kustomize
-kubectl apply -k .
+# Create secret with your GitHub token
+oc create secret generic github-copilot-token \
+  --from-literal=token=ghp_YOUR_TOKEN \
+  -n github-copilot
 ```
 
-### 4. Authenticate Copilot CLI
+### 3. Customize for Your Environment
 
-**IMPORTANT:** The Copilot CLI requires separate authentication (device flow).
+Edit `deployment.yaml` (or `deployment-openshift.yaml`) and update:
 
-1. Open the web terminal: https://copilot.9ci.dev
+```yaml
+# In ConfigMap
+data:
+  HOSTNAME: "copilot.your-domain.com"
 
-2. Run the auth command:
-   ```bash
-   copilot auth
-   ```
-
-3. Complete the device flow:
-   - Copy the code shown (e.g., `ABCD-EFGH`)
-   - Go to https://github.com/login/device
-   - Paste the code and authorize
-
-4. Test it works:
-   ```bash
-   copilot what-the-shell "list all files larger than 100MB"
-   ```
-
-### 5. Access Web Terminal
-
-Add to `/etc/hosts`:
-```
-45.79.63.127 copilot.9ci.dev
+# In Ingress/Route
+spec:
+  rules:
+  - host: copilot.your-domain.com
 ```
 
-Open: https://copilot.9ci.dev
+### 4. Access the Web Terminal
 
-## Configuration
+1. Point your DNS to the ingress IP
+2. Open: `https://copilot.your-domain.com`
+3. Run: `copilot auth` (one-time setup)
+4. Start using: `copilot what-the-shell "your query"`
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TTYD_PORT` | 7681 | Web terminal port |
-| `HOSTNAME` | copilot.9ci.dev | Public hostname |
-| `GH_TOKEN` | (from secret) | GitHub PAT for gh CLI |
-| `GITHUB_TOKEN` | (from secret) | GitHub PAT (alternate) |
-
-### Resources
-
-| Resource | Request | Limit |
-|----------|---------|-------|
-| Memory | 256Mi | 512Mi |
-| CPU | 200m | 500m |
-
-## Usage
-
-### Copilot CLI Commands
+## GitHub Copilot CLI Commands
 
 ```bash
 # Shell commands from natural language
@@ -124,22 +92,34 @@ ga 'query'     # copilot git-assist
 gha 'query'    # copilot gh-assist
 ```
 
-### GitHub CLI
+## Configuration
 
-The `gh` CLI is authenticated automatically with your token:
+### Create GitHub Token
+
+1. Go to: https://github.com/settings/tokens/new
+2. Select scopes: `repo`, `copilot`
+3. Generate and copy token
+4. Create secret:
 
 ```bash
-gh repo list
-gh issue list
-gh pr create
+kubectl create secret generic github-copilot-token \
+  --from-literal=token=ghp_YOUR_TOKEN \
+  -n github-copilot
 ```
+
+### Resource Requirements
+
+| Resource | Request | Limit |
+|----------|---------|-------|
+| Memory | 256Mi | 512Mi |
+| CPU | 200m | 500m |
 
 ## Architecture
 
 ```
                     ┌─────────────────────────────────────┐
                     │          Ingress / Route            │
-                    │   copilot.9ci.dev (TLS via LE)      │
+                    │   copilot.your-domain.com (TLS)     │
                     └──────────────┬──────────────────────┘
                                    │ :443
                                    ▼
@@ -158,39 +138,14 @@ gh pr create
 │                             │ /bin/bash                           │
 │  ┌──────────────────────────┴──────────────────────────────────┐ │
 │  │                    Copilot CLI Tools                         │ │
-│  │  - gh (GitHub CLI) - auto-auth via GH_TOKEN                 │ │
-│  │  - copilot (GitHub Copilot CLI) - run `copilot auth`        │ │
+│  │  - gh (GitHub CLI)                                          │ │
+│  │  - copilot (GitHub Copilot CLI)                             │ │
 │  │  - git, curl, bash                                          │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
 │  Secrets: github-copilot-token (GH_TOKEN)                        │
 │  ConfigMap: github-copilot-config                                │
 └───────────────────────────────────────────────────────────────────┘
-```
-
-## Customization
-
-### Change Hostname
-
-Edit `deployment.yaml`:
-
-```yaml
-# In ConfigMap
-data:
-  HOSTNAME: "copilot.your-domain.com"
-
-# In Ingress
-spec:
-  rules:
-  - host: copilot.your-domain.com
-```
-
-### Add Custom Aliases
-
-Edit the bashrc section in the deployment:
-
-```bash
-echo "alias myalias='my command'" >> /root/.bashrc
 ```
 
 ## Troubleshooting
@@ -204,12 +159,25 @@ kubectl logs -f deployment/github-copilot-cli -n github-copilot
 ### Check Authentication
 
 ```bash
-# GitHub CLI
 kubectl exec deployment/github-copilot-cli -n github-copilot -- gh auth status
-
-# Copilot CLI (requires device flow)
-kubectl exec -it deployment/github-copilot-cli -n github-copilot -- copilot auth
 ```
+
+### "Authentication error" from Copilot CLI
+
+The Copilot CLI requires device authentication. Run in the web terminal:
+
+```bash
+copilot auth
+```
+
+Then complete the device flow at https://github.com/login/device
+
+### "Not Found" (404) Error
+
+Ensure you have an active GitHub Copilot subscription:
+- Free trial: https://github.com/features/copilot (60 days)
+- Individual: $10/month
+- Business: Contact your GitHub admin
 
 ### Restart Pod
 
@@ -217,19 +185,15 @@ kubectl exec -it deployment/github-copilot-cli -n github-copilot -- copilot auth
 kubectl rollout restart deployment/github-copilot-cli -n github-copilot
 ```
 
-### "Authentication error" from Copilot CLI
+## Security Notes
 
-This means you need to run `copilot auth` in the web terminal:
-1. Open https://copilot.9ci.dev
-2. Run `copilot auth`
-3. Complete the device flow
+- The web terminal provides full shell access - protect with appropriate network policies
+- Token is stored in Kubernetes secret with appropriate RBAC
+- Consider adding authentication layer (OAuth, SSO) for production use
+- WebSocket support required for ttyd web terminal
 
-## OpenShift Deployment
+## Related
 
-For OpenShift, use `deployment-openshift.yaml` instead:
-
-```bash
-oc apply -f deployment-openshift.yaml
-```
-
-Update the hostname in the ConfigMap and Route to match your OpenShift domain.
+- `AUTH.md` - Detailed authentication instructions
+- `kustomization.yaml` - Kustomize configuration
+- https://docs.github.com/en/copilot - GitHub Copilot documentation
