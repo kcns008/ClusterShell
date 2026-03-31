@@ -32,6 +32,8 @@ type: Opaque
 stringData:
   # GitHub Personal Access Token with repo and copilot scopes
   # Create with: kubectl create secret generic github-copilot-token --from-literal=token=<YOUR_TOKEN> -n github-copilot
+  # Required scopes: repo, copilot
+  # Note: Requires active GitHub Copilot subscription
   token: ""
 ---
 apiVersion: apps/v1
@@ -102,7 +104,14 @@ spec:
             echo "$GH_TOKEN" | gh auth login --with-token
             gh auth status || echo "Note: Token may need additional scopes for some features"
             echo ""
-            echo "GitHub CLI configured. For Copilot CLI, run: copilot auth"
+            
+            # Create Copilot config directory and token file
+            mkdir -p /root/.config/github-copilot
+            echo "$GH_TOKEN" > /root/.config/github-copilot/token
+            chmod 600 /root/.config/github-copilot/token
+            echo "Copilot token stored in /root/.config/github-copilot/token"
+            echo ""
+            echo "GitHub CLI configured. Copilot CLI ready!"
           else
             echo "Warning: No GitHub token provided. Run 'gh auth login' manually."
           fi

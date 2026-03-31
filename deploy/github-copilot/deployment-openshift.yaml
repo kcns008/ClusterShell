@@ -31,7 +31,9 @@ metadata:
 type: Opaque
 stringData:
   # GitHub Personal Access Token with repo and copilot scopes
-  # Create with: oc create secret generic github-copilot-token --from-literal=token=<YOUR_TOKEN> -n github-copilot
+  # Create with: kubectl create secret generic github-copilot-token --from-literal=token=<YOUR_TOKEN> -n github-copilot
+  # Required scopes: repo, copilot
+  # Note: Requires active GitHub Copilot subscription
   token: ""
 ---
 apiVersion: apps/v1
