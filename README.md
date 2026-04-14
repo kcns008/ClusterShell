@@ -6,6 +6,10 @@
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](https://docs.nvidia.com/clustershell/latest/index.html)
 [![Project Status](https://img.shields.io/badge/status-alpha-orange)](https://docs.nvidia.com/clustershell/latest/about/release-notes.html)
 
+<p align="center">
+  <img src="deploy/opencode/demo.gif" alt="OpenCode AI agent deployed on ClusterShell / Kubernetes" width="960" />
+</p>
+
 ClusterShell is the safe, private runtime for autonomous AI agents. It provides sandboxed execution environments that protect your data, credentials, and infrastructure — governed by declarative YAML policies that prevent unauthorized file access, data exfiltration, and uncontrolled network activity.
 
 **Deploy anywhere:** Local Docker, Kubernetes clusters, or OpenShift — all with the same policy-driven security model.
