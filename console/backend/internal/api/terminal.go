@@ -6,8 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/kcns008/clustershell/console/backend/internal/k8sproxy"
 )
@@ -46,9 +44,8 @@ func (h *TerminalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer wsConn.Close()
 
-	// Load kubeconfig
-	kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	// Load k8s config (in-cluster or kubeconfig)
+	config, err := k8sproxy.GetRestConfig()
 	if err != nil {
 		h.sendError(wsConn, "Failed to load kubeconfig: "+err.Error())
 		return
@@ -101,5 +98,4 @@ func (h *TerminalHandler) sendError(wsConn *websocket.Conn, msg string) {
 	wsConn.WriteMessage(websocket.TextMessage, data)
 }
 
-// Ensure remotecommand.Stream is available
-var _ remotecommand.Stream = nil
+

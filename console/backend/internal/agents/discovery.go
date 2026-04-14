@@ -6,7 +6,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/kcns008/clustershell/console/backend/internal/k8sproxy"
 )
 
 // AgentPod represents a deployed agent pod
@@ -67,8 +68,7 @@ func ListAgentPods(ctx context.Context) ([]AgentPod, error) {
 }
 
 func getClient() (*kubernetes.Clientset, error) {
-	kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := k8sproxy.GetRestConfig()
 	if err != nil {
 		return nil, err
 	}

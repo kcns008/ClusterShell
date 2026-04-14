@@ -1,0 +1,109 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clustershell-console
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clustershell-console
+  namespace: clustershell-console
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clustershell-console
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec", "namespaces", "services", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: clustershell-console
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: clustershell-console
+subjects:
+  - kind: ServiceAccount
+    name: clustershell-console
+    namespace: clustershell-console
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clustershell-console
+  namespace: clustershell-console
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clustershell-console
+  template:
+    metadata:
+      labels:
+        app: clustershell-console
+    spec:
+      serviceAccountName: clustershell-console
+      containers:
+        - name: console
+          image: clustershell-console:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/agents
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/agents
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clustershell-console
+  namespace: clustershell-console
+spec:
+  selector:
+    app: clustershell-console
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clustershell-console
+  namespace: clustershell-console
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: clustershell-console.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: clustershell-console
+                port:
+                  number: 8080

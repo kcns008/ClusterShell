@@ -157,7 +157,7 @@ export function AgentTopology() {
       const data = evt.target.data();
       if (data.nodeType === 'agent') {
         window.dispatchEvent(new CustomEvent('open-terminal', {
-          detail: { namespace: data.namespace, podName: data.id },
+          detail: { namespace: data.namespace, podName: data.label.replace(/^[^ ]+ /, '') },
         }));
       }
     });
