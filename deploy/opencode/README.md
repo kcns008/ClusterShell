@@ -1,7 +1,7 @@
 # OpenCode Deployment
 
 <p align="center">
-  <img src="demo.gif" alt="OpenCode deployed on Kubernetes" width="960" />
+  <img src="https://raw.githubusercontent.com/kcns008/ClusterShell/main/deploy/opencode/demo.gif" alt="OpenCode deployed on Kubernetes" width="960" />
 </p>
 
 Browser-accessible [OpenCode](https://github.com/opencode-ai/opencode) AI coding agent with web terminal (ttyd).
