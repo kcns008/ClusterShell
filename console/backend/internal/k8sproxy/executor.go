@@ -48,9 +48,14 @@ func (e *Executor) ExecStream(ctx context.Context, stream *Stream) error {
 }
 
 func (e *Executor) buildExecURL(host string) *url.URL {
+	// host from rest.Config is already a full URL like "https://10.128.0.1:443"
+	base, err := url.Parse(host)
+	if err != nil {
+		base = &url.URL{Scheme: "https", Host: host}
+	}
 	u := &url.URL{
-		Scheme: "https",
-		Host:   host,
+		Scheme: base.Scheme,
+		Host:   base.Host,
 		Path:   fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/exec", e.namespace, e.podName),
 	}
 	q := u.Query()
