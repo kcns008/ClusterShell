@@ -1,0 +1,283 @@
+# OpenCode AI Coding Agent Deployment
+# Browser-accessible terminal-based AI coding assistant with web terminal (ttyd)
+#
+# Prerequisites:
+# 1. Kubernetes cluster with nginx ingress controller
+# 2. cert-manager with a cluster issuer (e.g., letsencrypt-issuer)
+# 3. API key for at least one LLM provider (OpenAI, Anthropic, Gemini, etc.)
+#
+# Quick Start:
+#   kubectl apply -f deployment.yaml
+#   kubectl create secret generic opencode-api-keys \
+#     --from-literal=anthropic-key=YOUR_KEY \
+#     -n opencode
+#
+# Customize:
+#   - Change HOSTNAME in ConfigMap to your domain
+#   - Set LLM_PROVIDER to your preferred provider
+#   - Update Ingress host and TLS settings
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opencode
+  labels:
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-config
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+data:
+  TTYD_PORT: "7681"
+  # Change to your domain
+  HOSTNAME: "opencode.example.com"
+  # LLM provider: anthropic, openai, gemini, groq, azure, openrouter
+  LLM_PROVIDER: "anthropic"
+  # Model to use (provider-specific)
+  LLM_MODEL: "claude-sonnet-4-20250514"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opencode-api-keys
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+type: Opaque
+stringData:
+  # Create with: kubectl create secret generic opencode-api-keys \
+  #   --from-literal=anthropic-key=<YOUR_KEY> \
+  #   --from-literal=openai-key=<YOUR_KEY> \
+  #   -n opencode
+  # Only the key for your chosen provider is required
+  anthropic-key: ""
+  openai-key: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opencode-sessions
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencode
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/component: ai-coding-agent
+    app.kubernetes.io/managed-by: clustershell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opencode
+  template:
+    metadata:
+      labels:
+        app: opencode
+    spec:
+      containers:
+      - name: opencode
+        image: golang:1.23-alpine
+        envFrom:
+        - configMapRef:
+            name: opencode-config
+        env:
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: opencode-api-keys
+              key: anthropic-key
+              optional: true
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: opencode-api-keys
+              key: openai-key
+              optional: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          # Install dependencies
+          echo "Installing dependencies..."
+          apk add --no-cache git curl bash gcc musl-dev ttyd
+
+          # Install OpenCode
+          echo "Installing OpenCode..."
+          if command -v go &>/dev/null; then
+            go install github.com/opencode-ai/opencode@latest 2>/dev/null && \
+              cp ~/go/bin/opencode /usr/local/bin/ 2>/dev/null || true
+          fi
+
+          # Fallback: download prebuilt binary
+          if ! command -v opencode &>/dev/null; then
+            echo "Downloading prebuilt binary..."
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64) BINARY_ARCH="amd64" ;;
+              aarch64) BINARY_ARCH="arm64" ;;
+              *) BINARY_ARCH="$ARCH" ;;
+            esac
+            curl -fsSL "https://github.com/opencode-ai/opencode/releases/latest/download/opencode-linux-${BINARY_ARCH}" \
+              -o /usr/local/bin/opencode && chmod +x /usr/local/bin/opencode
+          fi
+
+          # Verify installation
+          opencode version 2>/dev/null || echo "OpenCode installed (version check unavailable)"
+
+          # Create workspace directory
+          mkdir -p /workspace
+          cd /workspace
+
+          # Create default config
+          cat > /workspace/.opencode.json << EOFCONF
+          {
+            "provider": "${LLM_PROVIDER:-anthropic}",
+            "model": "${LLM_MODEL:-claude-sonnet-4-20250514}",
+            "autoCompact": true
+          }
+          EOFCONF
+
+          # Setup shell profile
+          cat > /root/.bashrc << 'EOF'
+          # OpenCode aliases
+          alias oc='opencode'
+          alias ocode='opencode'
+
+          opencode-help() {
+            echo "OpenCode - Terminal AI Coding Agent"
+            echo ""
+            echo "Usage: opencode [options]"
+            echo ""
+            echo "Commands (inside TUI):"
+            echo "  Ctrl+O      Toggle file tree"
+            echo "  Ctrl+K      Open command palette"
+            echo "  Ctrl+N      New session"
+            echo "  Ctrl+T      Toggle theme"
+            echo ""
+            echo "The agent can: edit files, run commands, search code"
+            echo "Uses LSP for code intelligence"
+          }
+          EOF
+
+          echo ""
+          echo "=========================================="
+          echo "OpenCode: $(opencode version 2>/dev/null || echo 'installed')"
+          echo "Provider: ${LLM_PROVIDER:-anthropic}"
+          echo "Model: ${LLM_MODEL:-claude-sonnet-4-20250514}"
+          echo "Web Terminal: https://${HOSTNAME}"
+          echo "=========================================="
+          echo ""
+
+          # Start web terminal
+          exec ttyd -W -p ${TTYD_PORT:-7681} /bin/bash
+        ports:
+        - containerPort: 7681
+          name: web-terminal
+          protocol: TCP
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: sessions
+          mountPath: /root/.local/share/opencode
+        - name: workspace
+          mountPath: /workspace
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 7681
+          initialDelaySeconds: 120
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7681
+          initialDelaySeconds: 60
+          periodSeconds: 5
+      volumes:
+      - name: sessions
+        persistentVolumeClaim:
+          claimName: opencode-sessions
+      - name: workspace
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencode
+  namespace: opencode
+  labels:
+    app: opencode
+spec:
+  selector:
+    app: opencode
+  ports:
+  - name: web-terminal
+    port: 7681
+    targetPort: 7681
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opencode
+  namespace: opencode
+  labels:
+    app: opencode
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-issuer
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: opencode
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+  # Change to your domain
+  - host: opencode.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: opencode
+            port:
+              number: 7681
+  tls:
+  # Change to your domain
+  - hosts:
+    - opencode.example.com
+    secretName: opencode-tls

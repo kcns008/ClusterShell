@@ -1,0 +1,234 @@
+# OpenCode Deployment for OpenShift
+# SCC-compliant with OpenShift Route
+#
+# Prerequisites:
+# 1. OpenShift 4.x cluster with Router configured
+# 2. API key for at least one LLM provider
+#
+# Quick Start:
+#   oc new-project opencode
+#   oc apply -f deployment-openshift.yaml
+#   oc create secret generic opencode-api-keys \
+#     --from-literal=anthropic-key=YOUR_KEY \
+#     -n opencode
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opencode
+  labels:
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-config
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+data:
+  TTYD_PORT: "7681"
+  HOSTNAME: "opencode.apps.example.com"
+  LLM_PROVIDER: "anthropic"
+  LLM_MODEL: "claude-sonnet-4-20250514"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opencode-api-keys
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/managed-by: clustershell
+type: Opaque
+stringData:
+  anthropic-key: ""
+  openai-key: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opencode-sessions
+  namespace: opencode
+  labels:
+    app: opencode
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencode
+  namespace: opencode
+  labels:
+    app: opencode
+    app.kubernetes.io/name: opencode
+    app.kubernetes.io/component: ai-coding-agent
+    app.kubernetes.io/managed-by: clustershell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opencode
+  template:
+    metadata:
+      labels:
+        app: opencode
+    spec:
+      # OpenShift SCC compliance
+      securityContext:
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: opencode
+        image: golang:1.23-alpine
+        envFrom:
+        - configMapRef:
+            name: opencode-config
+        env:
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: opencode-api-keys
+              key: anthropic-key
+              optional: true
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: opencode-api-keys
+              key: openai-key
+              optional: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsUser: 1001
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          echo "Installing dependencies..."
+          apk add --no-cache git curl bash gcc musl-dev ttyd
+
+          echo "Installing OpenCode..."
+          if command -v go &>/dev/null; then
+            go install github.com/opencode-ai/opencode@latest 2>/dev/null && \
+              cp ~/go/bin/opencode /usr/local/bin/ 2>/dev/null || true
+          fi
+
+          if ! command -v opencode &>/dev/null; then
+            echo "Downloading prebuilt binary..."
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64) BINARY_ARCH="amd64" ;;
+              aarch64) BINARY_ARCH="arm64" ;;
+              *) BINARY_ARCH="$ARCH" ;;
+            esac
+            curl -fsSL "https://github.com/opencode-ai/opencode/releases/latest/download/opencode-linux-${BINARY_ARCH}" \
+              -o /usr/local/bin/opencode && chmod +x /usr/local/bin/opencode
+          fi
+
+          mkdir -p /workspace /home/opencode/.local/share/opencode
+          cd /workspace
+
+          cat > /workspace/.opencode.json << EOFCONF
+          {
+            "provider": "${LLM_PROVIDER:-anthropic}",
+            "model": "${LLM_MODEL:-claude-sonnet-4-20250514}",
+            "autoCompact": true
+          }
+          EOFCONF
+
+          echo ""
+          echo "=========================================="
+          echo "OpenCode: $(opencode version 2>/dev/null || echo 'installed')"
+          echo "Provider: ${LLM_PROVIDER:-anthropic}"
+          echo "Model: ${LLM_MODEL:-claude-sonnet-4-20250514}"
+          echo "=========================================="
+
+          exec ttyd -W -p ${TTYD_PORT:-7681} /bin/bash
+        ports:
+        - containerPort: 7681
+          name: web-terminal
+          protocol: TCP
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: sessions
+          mountPath: /home/opencode/.local/share/opencode
+        - name: workspace
+          mountPath: /workspace
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 7681
+          initialDelaySeconds: 120
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7681
+          initialDelaySeconds: 60
+          periodSeconds: 5
+      volumes:
+      - name: sessions
+        persistentVolumeClaim:
+          claimName: opencode-sessions
+      - name: workspace
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencode
+  namespace: opencode
+  labels:
+    app: opencode
+spec:
+  selector:
+    app: opencode
+  ports:
+  - name: web-terminal
+    port: 7681
+    targetPort: 7681
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: opencode
+  namespace: opencode
+  labels:
+    app: opencode
+  annotations:
+    # OpenShift Router handles TLS termination
+    haproxy.router.openshift.io/timeout: "3600s"
+    haproxy.router.openshift.io/websocket-services: opencode
+spec:
+  host: opencode.apps.example.com
+  to:
+    kind: Service
+    name: opencode
+  port:
+    targetPort: web-terminal
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
