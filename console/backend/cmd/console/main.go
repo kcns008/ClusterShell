@@ -10,7 +10,7 @@ import (
 	"github.com/kcns008/clustershell/console/backend/internal/api"
 )
 
-//go:embed all:static
+//go:embed static
 var staticFiles embed.FS
 
 func main() {
@@ -19,25 +19,30 @@ func main() {
 	// API routes
 	mux.HandleFunc("/api/agents", api.ListAgents)
 	mux.HandleFunc("/api/topology", api.GetTopology)
+	mux.HandleFunc("/api/namespaces", api.ListNamespaces)
+	mux.HandleFunc("/api/deploy", api.DeployAgent)
 	mux.HandleFunc("/terminal/exec", api.ExecTerminal)
 
 	// Serve frontend static files
-	// When running from Docker, static/ contains the built frontend.
-	// When running locally for dev, use FRONTEND_DIST env var or fall back to ../frontend/dist.
-	staticDir := os.Getenv("FRONTEND_DIST")
-	if staticDir != "" {
-		mux.Handle("/", http.FileServer(http.Dir(staticDir)))
+	var fileServer http.Handler
+	if distDir := os.Getenv("FRONTEND_DIST"); distDir != "" {
+		// Docker: serve from mounted directory
+		fileServer = http.FileServer(http.Dir(distDir))
 	} else {
-		staticFS, err := fs.Sub(staticFiles, "static")
+		// Binary: serve from embedded files
+		sub, err := fs.Sub(staticFiles, "static")
 		if err != nil {
-			// Fallback to disk
-			mux.Handle("/", http.FileServer(http.Dir("../frontend/dist")))
-		} else {
-			fileServer := http.FileServer(http.FS(staticFS))
-			mux.Handle("/", fileServer)
+			log.Fatal(err)
 		}
+		fileServer = http.FileServer(http.FS(sub))
+	}
+	mux.Handle("/", fileServer)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	log.Println("ClusterShell Console starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Printf("ClusterShell Console starting on :%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }

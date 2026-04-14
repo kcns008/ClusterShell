@@ -20,7 +20,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["pods", "pods/exec", "services", "namespaces", "persistentvolumeclaims"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["get", "list", "watch", "create"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
