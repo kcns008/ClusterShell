@@ -9,7 +9,6 @@ import (
 )
 
 // Stream bridges WebSocket messages to io.Reader/io.Writer for k8s exec.
-// OpenShift Console uses the same pattern: WebSocket ↔ SPDY/chunked transfer.
 type Stream struct {
 	wsConn   *websocket.Conn
 	stdinR   *io.PipeReader
@@ -24,16 +23,26 @@ func NewWebSocketStream(wsConn *websocket.Conn) *Stream {
 		stdinR: r,
 		stdinW: w,
 	}
-
-	// Read stdin from WebSocket and write to pipe
 	go s.readStdin()
-
 	return s
 }
 
-func (s *Stream) Stdin() io.Reader  { return s.stdinR }
-func (s *Stream) Stdout() io.Writer { return &wsWriter{s} }
-func (s *Stream) Stderr() io.Writer { return &wsWriter{s} }
+// Read implements io.Reader (for stdin)
+func (s *Stream) Read(p []byte) (n int, err error) {
+	return s.stdinR.Read(p)
+}
+
+// Write implements io.Writer (for stdout/stderr)
+func (s *Stream) Write(p []byte) (n int, err error) {
+	s.stdoutMu.Lock()
+	defer s.stdoutMu.Unlock()
+	msg, _ := json.Marshal(map[string]string{
+		"type": "stdout",
+		"data": string(p),
+	})
+	s.wsConn.WriteMessage(websocket.TextMessage, msg)
+	return len(p), nil
+}
 
 func (s *Stream) readStdin() {
 	for {
@@ -41,7 +50,6 @@ func (s *Stream) readStdin() {
 		if err != nil {
 			return
 		}
-
 		var msg struct {
 			Type string `json:"type"`
 			Data string `json:"data"`
@@ -49,29 +57,8 @@ func (s *Stream) readStdin() {
 		if err := json.Unmarshal(message, &msg); err != nil {
 			continue
 		}
-
 		if msg.Type == "stdin" {
 			s.stdinW.Write([]byte(msg.Data))
 		}
 	}
-}
-
-func (s *Stream) writeStdout(data []byte) {
-	s.stdoutMu.Lock()
-	defer s.stdoutMu.Unlock()
-
-	msg, _ := json.Marshal(map[string]string{
-		"type": "stdout",
-		"data": string(data),
-	})
-	s.wsConn.WriteMessage(websocket.TextMessage, msg)
-}
-
-type wsWriter struct {
-	stream *Stream
-}
-
-func (w *wsWriter) Write(p []byte) (n int, err error) {
-	w.stream.writeStdout(p)
-	return len(p), nil
 }

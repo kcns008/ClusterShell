@@ -7,7 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Topology represents the network graph of agent deployments
 type Topology struct {
 	Nodes []TopologyNode `json:"nodes"`
 	Edges []TopologyEdge `json:"edges"`
@@ -28,9 +27,6 @@ type TopologyEdge struct {
 	Type   string `json:"type"`
 }
 
-// GetTopology builds a network topology graph from K8s resources.
-// Discovers: Namespaces → Pods → Services → Ingresses → PVCs
-// Maps relationships between them for visualization.
 func GetTopology(ctx context.Context) (*Topology, error) {
 	clientset, err := getClient()
 	if err != nil {
@@ -39,16 +35,9 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 
 	topology := &Topology{}
 
-	// Get namespaces with cluster-shell managed resources
-	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		LabelSelector: "app.kubernetes.io/managed-by=clustershell",
-	})
+	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		// Fallback: scan all namespaces
-		namespaces, err = clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list namespaces: %w", err)
-		}
+		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
 
 	for _, ns := range namespaces.Items {
@@ -58,7 +47,6 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 			Status: "running", Namespace: ns.Name,
 		})
 
-		// Pods
 		pods, _ := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 		for _, pod := range pods.Items {
 			podID := fmt.Sprintf("pod-%s-%s", ns.Name, pod.Name)
@@ -67,12 +55,11 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 				Status: string(pod.Status.Phase), Namespace: ns.Name,
 			})
 			topology.Edges = append(topology.Edges, TopologyEdge{
-				ID: fmt.Sprintf("%s-%s", nsID, podID),
+				ID:     fmt.Sprintf("%s-%s", nsID, podID),
 				Source: nsID, Target: podID, Type: "contains",
 			})
 		}
 
-		// Services
 		services, _ := clientset.CoreV1().Services(ns.Name).List(ctx, metav1.ListOptions{})
 		for _, svc := range services.Items {
 			svcID := fmt.Sprintf("svc-%s-%s", ns.Name, svc.Name)
@@ -80,14 +67,12 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 				ID: svcID, Label: svc.Name, Type: "service",
 				Status: "running", Namespace: ns.Name,
 			})
-
-			// Service → Pod edges (by selector)
 			for k, v := range svc.Spec.Selector {
 				for _, pod := range pods.Items {
 					if pod.Labels[k] == v {
 						podID := fmt.Sprintf("pod-%s-%s", ns.Name, pod.Name)
 						topology.Edges = append(topology.Edges, TopologyEdge{
-							ID: fmt.Sprintf("%s-%s", svcID, podID),
+							ID:     fmt.Sprintf("%s-%s", svcID, podID),
 							Source: podID, Target: svcID, Type: "exposes",
 						})
 					}
@@ -95,7 +80,6 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 			}
 		}
 
-		// Ingresses
 		ingresses, _ := clientset.NetworkingV1().Ingresses(ns.Name).List(ctx, metav1.ListOptions{})
 		for _, ing := range ingresses.Items {
 			ingID := fmt.Sprintf("ing-%s-%s", ns.Name, ing.Name)
@@ -108,14 +92,13 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 					svcName := path.Backend.Service.Name
 					svcID := fmt.Sprintf("svc-%s-%s", ns.Name, svcName)
 					topology.Edges = append(topology.Edges, TopologyEdge{
-						ID: fmt.Sprintf("%s-%s", ingID, svcID),
+						ID:     fmt.Sprintf("%s-%s", ingID, svcID),
 						Source: ingID, Target: svcID, Type: "routes-to",
 					})
 				}
 			}
 		}
 
-		// PVCs
 		pvcs, _ := clientset.CoreV1().PersistentVolumeClaims(ns.Name).List(ctx, metav1.ListOptions{})
 		for _, pvc := range pvcs.Items {
 			pvcID := fmt.Sprintf("pvc-%s-%s", ns.Name, pvc.Name)

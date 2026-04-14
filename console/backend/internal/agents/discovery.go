@@ -3,11 +3,12 @@ package agents
 import (
 	"context"
 	"fmt"
+	"os"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/kcns008/clustershell/console/backend/internal/k8sproxy"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // AgentPod represents a deployed agent pod
@@ -36,9 +37,7 @@ func ListAgentPods(ctx context.Context) ([]AgentPod, error) {
 
 	var agents []AgentPod
 	for _, ns := range namespaces.Items {
-		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{
-			LabelSelector: "app.kubernetes.io/managed-by=clustershell",
-		})
+		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			continue
 		}
@@ -68,9 +67,17 @@ func ListAgentPods(ctx context.Context) ([]AgentPod, error) {
 }
 
 func getClient() (*kubernetes.Clientset, error) {
-	config, err := k8sproxy.GetRestConfig()
+	config, err := getRestConfig()
 	if err != nil {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(config)
+}
+
+func getRestConfig() (*rest.Config, error) {
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		return rest.InClusterConfig()
+	}
+	kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }

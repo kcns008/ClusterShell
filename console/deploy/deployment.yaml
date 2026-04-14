@@ -3,6 +3,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: clustershell-console
+  labels:
+    app.kubernetes.io/name: clustershell-console
+    app.kubernetes.io/managed-by: clustershell
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -15,12 +18,12 @@ kind: ClusterRole
 metadata:
   name: clustershell-console
 rules:
-  - apiGroups: [""]
-    resources: ["pods", "pods/exec", "namespaces", "services", "persistentvolumeclaims"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods", "pods/exec", "services", "namespaces", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -31,15 +34,17 @@ roleRef:
   kind: ClusterRole
   name: clustershell-console
 subjects:
-  - kind: ServiceAccount
-    name: clustershell-console
-    namespace: clustershell-console
+- kind: ServiceAccount
+  name: clustershell-console
+  namespace: clustershell-console
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: clustershell-console
   namespace: clustershell-console
+  labels:
+    app: clustershell-console
 spec:
   replicas: 1
   selector:
@@ -51,31 +56,37 @@ spec:
         app: clustershell-console
     spec:
       serviceAccountName: clustershell-console
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
-        - name: console
-          image: clustershell-console:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 8080
-          resources:
-            requests:
-              memory: "64Mi"
-              cpu: "100m"
-            limits:
-              memory: "256Mi"
-              cpu: "500m"
-          livenessProbe:
-            httpGet:
-              path: /api/agents
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /api/agents
-              port: 8080
-            initialDelaySeconds: 3
-            periodSeconds: 10
+      - name: console
+        image: ghcr.io/kcns008/clustershell-console:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -86,24 +97,37 @@ spec:
   selector:
     app: clustershell-console
   ports:
-    - port: 8080
-      targetPort: 8080
+  - name: http
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: clustershell-console
   namespace: clustershell-console
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-issuer
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: clustershell-console
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   ingressClassName: nginx
   rules:
-    - host: clustershell-console.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: clustershell-console
-                port:
-                  number: 8080
+  - host: console.9ci.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: clustershell-console
+            port:
+              number: 8080
+  tls:
+  - hosts:
+    - console.9ci.dev
+    secretName: clustershell-console-tls

@@ -3,86 +3,67 @@ package k8sproxy
 import (
 	"context"
 	"fmt"
+	"net/url"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-// sizeQueue implements remotecommand.TerminalSizeQueue
-type sizeQueue struct {
-	ch chan remotecommand.TerminalSize
-}
-
-func (s *sizeQueue) Next() *remotecommand.TerminalSize {
-	size, ok := <-s.ch
-	if !ok {
-		return nil
-	}
-	return &size
-}
-
-// Executor wraps Kubernetes remote command execution for pod terminal access.
+// Executor handles remote command execution into pods
 type Executor struct {
-	clientset *kubernetes.Clientset
-	config    *rest.Config
+	config    *RestConfigHelper
 	namespace string
 	podName   string
 	container string
-	sizeQueue *sizeQueue
 }
 
-func NewExecutor(config *rest.Config, namespace, podName, container string) (*Executor, error) {
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create clientset: %w", err)
-	}
-
+func NewExecutor(namespace, podName, container string) (*Executor, error) {
 	return &Executor{
-		clientset: clientset,
-		config:    config,
+		config:    NewRestConfigHelper(),
 		namespace: namespace,
 		podName:   podName,
 		container: container,
-		sizeQueue: &sizeQueue{ch: make(chan remotecommand.TerminalSize, 1)},
 	}, nil
 }
 
-func (e *Executor) Execute(ctx context.Context, stream *Stream) error {
-	req := e.clientset.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Namespace(e.namespace).
-		Name(e.podName).
-		SubResource("exec").
-		VersionedParams(&corev1.PodExecOptions{
-			Container: e.container,
-			Command:   []string{"/bin/sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"},
-			Stdin:     true,
-			Stdout:    true,
-			Stderr:    true,
-			TTY:       true,
-		}, scheme.ParameterCodec)
+// ExecStream creates an exec session and streams to the provided Stream
+func (e *Executor) ExecStream(ctx context.Context, stream *Stream) error {
+	config, err := e.config.GetConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %w", err)
+	}
 
-	executor, err := remotecommand.NewSPDYExecutor(e.config, "POST", req.URL())
+	execURL := e.buildExecURL(config.Host)
+
+	executor, err := remotecommand.NewSPDYExecutor(config, "POST", execURL)
 	if err != nil {
 		return fmt.Errorf("failed to create SPDY executor: %w", err)
 	}
 
 	return executor.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdin:             stream.Stdin(),
-		Stdout:            stream.Stdout(),
-		Stderr:            stream.Stderr(),
-		Tty:               true,
-		TerminalSizeQueue: e.sizeQueue,
+		Stdin:  stream,
+		Stdout: stream,
+		Stderr: stream,
+		Tty:    true,
 	})
 }
 
-func (e *Executor) Resize(cols, rows uint16) {
-	// Non-blocking send: drop old size if unread
-	select {
-	case e.sizeQueue.ch <- remotecommand.TerminalSize{Width: cols, Height: rows}:
-	default:
+func (e *Executor) buildExecURL(host string) *url.URL {
+	u := &url.URL{
+		Scheme: "https",
+		Host:   host,
+		Path:   fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/exec", e.namespace, e.podName),
 	}
+	q := u.Query()
+	q.Set("stdin", "true")
+	q.Set("stdout", "true")
+	q.Set("stderr", "true")
+	q.Set("tty", "true")
+	q.Set("command", "/bin/sh")
+	q.Set("command", "-c")
+	q.Set("command", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi")
+	if e.container != "" {
+		q.Set("container", e.container)
+	}
+	u.RawQuery = q.Encode()
+	return u
 }

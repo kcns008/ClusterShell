@@ -43,8 +43,4 @@ func GetTopology(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(topology)
 }
 
-// ExecTerminal upgrades to WebSocket and proxies to k8s pod exec
-func ExecTerminal(w http.ResponseWriter, r *http.Request) {
-	terminalHandler := NewTerminalHandler()
-	terminalHandler.ServeHTTP(w, r)
-}
+
