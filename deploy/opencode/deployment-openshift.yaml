@@ -91,7 +91,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: opencode
-        image: golang:1.23-alpine
+        image: alpine:3.21
         envFrom:
         - configMapRef:
             name: opencode-config
@@ -121,25 +121,14 @@ spec:
           set -e
 
           echo "Installing dependencies..."
-          apk add --no-cache git curl bash gcc musl-dev ttyd
+          apk add --no-cache git curl bash nodejs npm ttyd
 
-          echo "Installing OpenCode..."
-          if command -v go &>/dev/null; then
-            go install github.com/opencode-ai/opencode@latest 2>/dev/null && \
-              cp ~/go/bin/opencode /usr/local/bin/ 2>/dev/null || true
-          fi
-
-          if ! command -v opencode &>/dev/null; then
-            echo "Downloading prebuilt binary..."
-            ARCH=$(uname -m)
-            case "$ARCH" in
-              x86_64) BINARY_ARCH="amd64" ;;
-              aarch64) BINARY_ARCH="arm64" ;;
-              *) BINARY_ARCH="$ARCH" ;;
-            esac
-            curl -fsSL "https://github.com/opencode-ai/opencode/releases/latest/download/opencode-linux-${BINARY_ARCH}" \
-              -o /usr/local/bin/opencode && chmod +x /usr/local/bin/opencode
-          fi
+          echo "Installing OpenCode v0.0.55..."
+          curl -fsSL "https://github.com/opencode-ai/opencode/releases/download/v0.0.55/opencode-linux-x86_64.tar.gz" -o /tmp/opencode.tar.gz
+          tar -xzf /tmp/opencode.tar.gz -C /tmp
+          cp /tmp/opencode /usr/local/bin/opencode
+          chmod +x /usr/local/bin/opencode
+          rm -rf /tmp/opencode*
 
           mkdir -p /workspace /home/opencode/.local/share/opencode
           cd /workspace

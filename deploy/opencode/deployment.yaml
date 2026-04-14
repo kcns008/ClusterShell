@@ -101,7 +101,7 @@ spec:
     spec:
       containers:
       - name: opencode
-        image: golang:1.23-alpine
+        image: alpine:3.21
         envFrom:
         - configMapRef:
             name: opencode-config
@@ -126,30 +126,17 @@ spec:
 
           # Install dependencies
           echo "Installing dependencies..."
-          apk add --no-cache git curl bash gcc musl-dev ttyd
+          apk add --no-cache git curl bash nodejs npm ttyd
 
-          # Install OpenCode
+          # Install OpenCode v0.0.55 (prebuilt binary)
           echo "Installing OpenCode..."
-          if command -v go &>/dev/null; then
-            go install github.com/opencode-ai/opencode@latest 2>/dev/null && \
-              cp ~/go/bin/opencode /usr/local/bin/ 2>/dev/null || true
-          fi
+          curl -fsSL "https://github.com/opencode-ai/opencode/releases/download/v0.0.55/opencode-linux-x86_64.tar.gz" -o /tmp/opencode.tar.gz
+          tar -xzf /tmp/opencode.tar.gz -C /tmp
+          cp /tmp/opencode /usr/local/bin/opencode
+          chmod +x /usr/local/bin/opencode
+          rm -rf /tmp/opencode*
 
-          # Fallback: download prebuilt binary
-          if ! command -v opencode &>/dev/null; then
-            echo "Downloading prebuilt binary..."
-            ARCH=$(uname -m)
-            case "$ARCH" in
-              x86_64) BINARY_ARCH="amd64" ;;
-              aarch64) BINARY_ARCH="arm64" ;;
-              *) BINARY_ARCH="$ARCH" ;;
-            esac
-            curl -fsSL "https://github.com/opencode-ai/opencode/releases/latest/download/opencode-linux-${BINARY_ARCH}" \
-              -o /usr/local/bin/opencode && chmod +x /usr/local/bin/opencode
-          fi
-
-          # Verify installation
-          opencode version 2>/dev/null || echo "OpenCode installed (version check unavailable)"
+          echo "OpenCode version: $(opencode version 2>/dev/null || echo 'installed')"
 
           # Create workspace directory
           mkdir -p /workspace

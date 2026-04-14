@@ -1,5 +1,9 @@
 # OpenCode Deployment
 
+<p align="center">
+  <img src="demo.gif" alt="OpenCode deployed on Kubernetes" width="960" />
+</p>
+
 Browser-accessible [OpenCode](https://github.com/opencode-ai/opencode) AI coding agent with web terminal (ttyd).
 
 > **Note:** OpenCode has been archived and continues as [Crush](https://github.com/charmbracelet/crush) by Charmbracelet. This deployment supports both OpenCode and Crush.
