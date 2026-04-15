@@ -14,14 +14,16 @@ type Executor struct {
 	namespace string
 	podName   string
 	container string
+	agentCmd  string // optional: agent startup command (e.g. "opencode", "claude")
 }
 
-func NewExecutor(namespace, podName, container string) (*Executor, error) {
+func NewExecutor(namespace, podName, container, agentCmd string) (*Executor, error) {
 	return &Executor{
 		config:    NewRestConfigHelper(),
 		namespace: namespace,
 		podName:   podName,
 		container: container,
+		agentCmd:  agentCmd,
 	}, nil
 }
 
@@ -63,9 +65,18 @@ func (e *Executor) buildExecURL(host string) *url.URL {
 	q.Set("stdout", "true")
 	q.Set("stderr", "true")
 	q.Set("tty", "true")
-	q.Set("command", "/bin/sh")
-	q.Set("command", "-c")
-	q.Set("command", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi")
+
+	// Build the startup command: prefer agent command, fall back to bash/sh.
+	// Use q.Add (not q.Set) so multiple "command" params are preserved.
+	shellCmd := "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"
+	if e.agentCmd != "" {
+		// Launch the agent if available; fall back to bash/sh so the shell always opens.
+		shellCmd = "if command -v " + e.agentCmd + " >/dev/null 2>&1; then exec " + e.agentCmd + "; elif command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"
+	}
+	q.Add("command", "/bin/sh")
+	q.Add("command", "-c")
+	q.Add("command", shellCmd)
+
 	if e.container != "" {
 		q.Set("container", e.container)
 	}

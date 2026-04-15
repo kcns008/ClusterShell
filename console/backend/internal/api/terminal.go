@@ -19,6 +19,8 @@ func ExecTerminal(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	podName := r.URL.Query().Get("pod")
 	container := r.URL.Query().Get("container")
+	// agentCmd is an optional agent startup command (e.g. "opencode", "claude")
+	agentCmd := r.URL.Query().Get("cmd")
 
 	if namespace == "" || podName == "" {
 		http.Error(w, "namespace and pod required", http.StatusBadRequest)
@@ -34,7 +36,7 @@ func ExecTerminal(w http.ResponseWriter, r *http.Request) {
 
 	stream := k8sproxy.NewWebSocketStream(wsConn)
 
-	executor, err := k8sproxy.NewExecutor(namespace, podName, container)
+	executor, err := k8sproxy.NewExecutor(namespace, podName, container, agentCmd)
 	if err != nil {
 		sendError(wsConn, "Failed to create executor: "+err.Error())
 		return

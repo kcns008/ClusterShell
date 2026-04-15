@@ -21,6 +21,7 @@ type AgentPod struct {
 	Node      string   `json:"node"`
 	Ports     []string `json:"ports"`
 	Created   string   `json:"created"`
+	Template  string   `json:"template"`  // clustershell.io/template label value
 }
 
 // ListAgentPods discovers all agent pods across namespaces
@@ -50,6 +51,7 @@ func ListAgentPods(ctx context.Context) ([]AgentPod, error) {
 				IP:        pod.Status.PodIP,
 				Node:      pod.Spec.NodeName,
 				Created:   pod.CreationTimestamp.Format("2006-01-02 15:04"),
+				Template:  pod.Labels["clustershell.io/template"],
 			}
 
 			for _, c := range pod.Spec.Containers {
