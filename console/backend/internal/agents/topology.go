@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,6 +28,40 @@ type TopologyEdge struct {
 	Type   string `json:"type"`
 }
 
+// System namespaces to exclude from topology view
+var systemNamespaces = map[string]bool{
+	"kube-system":                true,
+	"kube-public":                true,
+	"kube-node-lease":            true,
+	"cattle-system":              true,
+	"cattle-fleet-system":        true,
+	"cattle-monitoring-system":   true,
+	"cattle-impersonation-system": true,
+	"cattle-resources-system":    true,
+	"cert-manager":               true,
+	"ingress-nginx":              true,
+	"velero":                     true,
+	"clustershell-console":       true,
+	"longhorn-system":            true,
+	"tigera-operator":            true,
+	"calico-system":              true,
+	"calico-apiserver":           true,
+	"gatekeeper-system":          true,
+	"local-path-storage":         true,
+	" metallb-system":            true,
+}
+
+func isSystemNamespace(name string) bool {
+	if systemNamespaces[name] {
+		return true
+	}
+	// Also skip any namespace starting with cattle- or kube-
+	if strings.HasPrefix(name, "cattle-") || strings.HasPrefix(name, "kube-") {
+		return true
+	}
+	return false
+}
+
 func GetTopology(ctx context.Context) (*Topology, error) {
 	clientset, err := getClient()
 	if err != nil {
@@ -41,6 +76,11 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 	}
 
 	for _, ns := range namespaces.Items {
+		// Skip system namespaces
+		if isSystemNamespace(ns.Name) {
+			continue
+		}
+
 		nsID := fmt.Sprintf("ns-%s", ns.Name)
 		topology.Nodes = append(topology.Nodes, TopologyNode{
 			ID: nsID, Label: ns.Name, Type: "namespace",
@@ -62,6 +102,10 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 
 		services, _ := clientset.CoreV1().Services(ns.Name).List(ctx, metav1.ListOptions{})
 		for _, svc := range services.Items {
+			// Skip kubernetes headless/default services
+			if svc.Name == "kubernetes" {
+				continue
+			}
 			svcID := fmt.Sprintf("svc-%s-%s", ns.Name, svc.Name)
 			topology.Nodes = append(topology.Nodes, TopologyNode{
 				ID: svcID, Label: svc.Name, Type: "service",
@@ -88,6 +132,9 @@ func GetTopology(ctx context.Context) (*Topology, error) {
 				Status: "running", Namespace: ns.Name,
 			})
 			for _, rule := range ing.Spec.Rules {
+				if rule.HTTP == nil {
+					continue
+				}
 				for _, path := range rule.HTTP.Paths {
 					svcName := path.Backend.Service.Name
 					svcID := fmt.Sprintf("svc-%s-%s", ns.Name, svcName)
