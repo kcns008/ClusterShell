@@ -24,7 +24,7 @@ interface Namespace {
   status: string;
 }
 
-type View = 'dashboard' | 'agents' | 'topology' | 'admin' | 'settings';
+type View = 'dashboard' | 'agents' | 'topology' | 'settings';
 type ShellSession = {
   id: string;
   namespace: string;
@@ -144,22 +144,6 @@ function Sidebar({
             Deploy Agent
           </button>
         </div>
-
-        {/* Admin separator */}
-        <div className="pt-5 pb-1 px-3">
-          <p className="text-[10px] font-semibold text-[#4a5568] uppercase tracking-widest">Administration</p>
-        </div>
-        <button
-          onClick={() => setView('admin')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
-            view === 'admin'
-              ? 'bg-blue-600/15 text-blue-400'
-              : 'text-[#8b949e] hover:text-white hover:bg-white/[0.04]'
-          }`}
-        >
-          {Icons.admin}
-          Admin Panel
-        </button>
       </nav>
 
       {/* Footer */}
@@ -470,7 +454,6 @@ export function App() {
     dashboard: 'Dashboard',
     agents: 'Agent Pods',
     topology: 'Topology',
-    admin: 'Admin Panel',
     settings: 'Settings',
   };
 
@@ -485,7 +468,7 @@ export function App() {
         <header className="h-12 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between px-6 shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-[13px] font-semibold text-white">{viewTitles[view]}</h2>
-            {view !== 'admin' && view !== 'settings' && (
+            {view !== 'settings' && (
               <NamespaceSelector namespaces={namespaces} selected={selectedNs} onChange={setSelectedNs} />
             )}
           </div>
@@ -495,7 +478,7 @@ export function App() {
         {/* Content + Shell panel */}
         <div className="flex-1 flex overflow-hidden">
           {/* Primary content */}
-          <main className="flex-1 p-5 overflow-auto">
+          <main className="flex-1 p-5 overflow-auto relative">
             {loading ? (
               <div className="flex items-center justify-center h-64">
                 <div className="flex items-center gap-3 text-[#4a5568]">
@@ -511,18 +494,11 @@ export function App() {
             ) : view === 'agents' ? (
               <AgentListView agents={filteredAgents} namespace={selectedNs} onShellOpen={openShell} />
             ) : view === 'topology' ? (
-              <div className="h-full">
-                <div className="h-[calc(100%-20px)]">
-                  <AgentTopology />
-                </div>
+              <div className="absolute inset-0 p-5">
+                <AgentTopology />
               </div>
-            ) : view === 'admin' ? (
-              <AdminPanel />
             ) : view === 'settings' ? (
-              <div className="bg-[#161b22] border border-[#2d3748] rounded-xl p-6">
-                <h3 className="text-base font-semibold text-white mb-4">Settings</h3>
-                <p className="text-[#8b949e] text-sm">Console configuration coming soon.</p>
-              </div>
+              <AdminPanel />
             ) : null}
           </main>
 

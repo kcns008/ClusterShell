@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import cytoscape, { Core, NodeSingular } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 
@@ -19,9 +19,10 @@ interface TopologyEdge {
   type: 'exposes' | 'mounts' | 'contains' | 'routes-to';
 }
 
-interface AgentTopology {
+interface AgentTopologyData {
   nodes: TopologyNode[];
   edges: TopologyEdge[];
+  error?: string;
 }
 
 /**
@@ -36,9 +37,13 @@ interface AgentTopology {
 export function AgentTopology() {
   const cyRef = useRef<HTMLDivElement>(null);
   const cyInstance = useRef<Core | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [empty, setEmpty] = useState(false);
 
-  const fetchTopology = useCallback(async (): Promise<AgentTopology> => {
+  const fetchTopology = useCallback(async (): Promise<AgentTopologyData> => {
     const res = await fetch('/api/topology');
+    if (!res.ok) throw new Error(`Topology API returned ${res.status}`);
     return res.json();
   }, []);
 
@@ -56,7 +61,30 @@ export function AgentTopology() {
   const buildGraph = useCallback(async () => {
     if (!cyRef.current) return;
 
-    const topology = await fetchTopology();
+    setLoading(true);
+    setError(null);
+    setEmpty(false);
+
+    let topology: AgentTopologyData;
+    try {
+      topology = await fetchTopology();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load topology');
+      setLoading(false);
+      return;
+    }
+
+    if (topology.error) {
+      setError(topology.error);
+      setLoading(false);
+      return;
+    }
+
+    if (!topology.nodes || topology.nodes.length === 0) {
+      setEmpty(true);
+      setLoading(false);
+      return;
+    }
 
     const elements = [
       ...topology.nodes.map((node) => {
@@ -81,6 +109,9 @@ export function AgentTopology() {
         },
       })),
     ];
+
+    // Destroy previous instance before creating new one
+    cyInstance.current?.destroy();
 
     const cy = cytoscape({
       container: cyRef.current,
@@ -146,7 +177,6 @@ export function AgentTopology() {
     // Click handler — select node
     cy.on('tap', 'node', (evt) => {
       const node = evt.target;
-      // Dispatch custom event for detail panel
       window.dispatchEvent(new CustomEvent('topology-node-select', {
         detail: node.data(),
       }));
@@ -162,6 +192,7 @@ export function AgentTopology() {
       }
     });
 
+    setLoading(false);
     return cy;
   }, [fetchTopology]);
 
@@ -171,10 +202,10 @@ export function AgentTopology() {
   }, [buildGraph]);
 
   return (
-    <div className="relative w-full h-full bg-[#0d1117] rounded-lg border border-gray-700 overflow-hidden">
+    <div className="relative w-full h-full min-h-[400px] bg-[#0d1117] rounded-xl border border-[#2d3748] overflow-hidden">
       {/* Legend */}
-      <div className="absolute top-3 right-3 bg-[#161b22] border border-gray-700 rounded-lg p-3 z-10">
-        <h3 className="text-xs font-semibold text-gray-400 mb-2">LEGEND</h3>
+      <div className="absolute top-3 right-3 bg-[#161b22] border border-[#2d3748] rounded-lg p-3 z-10">
+        <h3 className="text-[10px] font-semibold text-[#636e7b] uppercase tracking-widest mb-2">LEGEND</h3>
         {[
           { icon: '🤖', label: 'Agent Pod', color: '#10b981' },
           { icon: '🔌', label: 'Service', color: '#3b82f6' },
@@ -188,6 +219,48 @@ export function AgentTopology() {
           </div>
         ))}
       </div>
+
+      {/* Loading state */}
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 bg-[#0d1117]/80">
+          <div className="flex items-center gap-3 text-[#8b949e]">
+            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            <span className="text-sm">Loading topology…</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && !loading && (
+        <div className="absolute inset-0 flex items-center justify-center z-20">
+          <div className="text-center space-y-3">
+            <div className="text-3xl">⚠️</div>
+            <p className="text-sm text-[#8b949e]">Failed to load topology</p>
+            <p className="text-xs text-[#4a5568] max-w-xs">{error}</p>
+            <button
+              onClick={buildGraph}
+              className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition font-medium"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {empty && !loading && !error && (
+        <div className="absolute inset-0 flex items-center justify-center z-20">
+          <div className="text-center space-y-2">
+            <div className="text-3xl">🔍</div>
+            <p className="text-sm text-[#8b949e]">No resources found</p>
+            <p className="text-xs text-[#4a5568]">Deploy an agent to see the topology</p>
+          </div>
+        </div>
+      )}
+
       <div ref={cyRef} className="w-full h-full" />
     </div>
   );

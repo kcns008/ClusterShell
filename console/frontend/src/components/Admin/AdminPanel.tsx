@@ -41,7 +41,7 @@ interface CatalogEntry {
   repo: string;
 }
 
-type AdminTab = 'users' | 'policies' | 'catalog' | 'scm';
+type AdminTab = 'general' | 'users' | 'policies' | 'catalog' | 'scm';
 
 // ---------------------------------------------------------------------------
 // Shared UI bits
@@ -615,10 +615,85 @@ function SCMTab({ scm, onRefresh }: { scm: SCMConfig; onRefresh: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// Tab: General Settings
+// ---------------------------------------------------------------------------
+function GeneralTab() {
+  return (
+    <div className="space-y-4">
+      <SectionCard title="Console" subtitle="General console configuration">
+        <div className="px-5 py-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white font-medium">Auto-refresh interval</p>
+              <p className="text-xs text-[#636e7b] mt-0.5">How often the dashboard polls for pod status updates</p>
+            </div>
+            <select className="bg-[#0d1117] border border-[#2d3748] focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-white outline-none transition">
+              <option value="10">10 seconds</option>
+              <option value="30" selected>30 seconds</option>
+              <option value="60">60 seconds</option>
+              <option value="0">Disabled</option>
+            </select>
+          </div>
+          <div className="border-t border-[#2d3748]" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white font-medium">Default namespace</p>
+              <p className="text-xs text-[#636e7b] mt-0.5">Namespace selected by default when deploying agents</p>
+            </div>
+            <input
+              type="text"
+              defaultValue="default"
+              className="w-40 bg-[#0d1117] border border-[#2d3748] focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-white outline-none transition font-mono"
+            />
+          </div>
+          <div className="border-t border-[#2d3748]" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white font-medium">Terminal font size</p>
+              <p className="text-xs text-[#636e7b] mt-0.5">Font size for the shell terminal panel</p>
+            </div>
+            <select className="bg-[#0d1117] border border-[#2d3748] focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-white outline-none transition">
+              <option value="12">12px</option>
+              <option value="14" selected>14px</option>
+              <option value="16">16px</option>
+              <option value="18">18px</option>
+            </select>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Cluster" subtitle="Connected cluster information">
+        <div className="px-5 py-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#8b949e]">Cluster name</span>
+            <span className="text-sm text-white font-mono">dev-barn</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#8b949e]">Status</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              <span className="text-sm text-green-400">Online</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#8b949e]">Provider</span>
+            <span className="text-sm text-white">Linode Kubernetes Engine (LKE)</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#8b949e]">Console version</span>
+            <span className="text-sm text-white font-mono">0.1.0-dev</span>
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main AdminPanel
 // ---------------------------------------------------------------------------
 export function AdminPanel() {
-  const [tab, setTab] = useState<AdminTab>('users');
+  const [tab, setTab] = useState<AdminTab>('general');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [policies, setPolicies] = useState<PolicyTemplate[]>([]);
   const [scm, setSCM] = useState<SCMConfig>({ provider: 'github', orgOrGroup: '', baseURL: 'https://github.com', tokenSet: false, allowedRepos: '' });
@@ -644,6 +719,7 @@ export function AdminPanel() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const tabs: { id: AdminTab; label: string; icon: string }[] = [
+    { id: 'general', label: 'General', icon: '⚙️' },
     { id: 'users', label: 'Users & Access', icon: '👥' },
     { id: 'policies', label: 'Policies', icon: '🛡️' },
     { id: 'catalog', label: 'Catalog', icon: '📦' },
@@ -671,6 +747,7 @@ export function AdminPanel() {
       </div>
 
       {/* Content */}
+      {tab === 'general' && <GeneralTab />}
       {tab === 'users' && <UsersTab users={users} policies={policies} catalog={catalog} onRefresh={fetchAll} />}
       {tab === 'policies' && <PoliciesTab policies={policies} onRefresh={fetchAll} />}
       {tab === 'catalog' && <CatalogTab catalog={catalog} onRefresh={fetchAll} />}

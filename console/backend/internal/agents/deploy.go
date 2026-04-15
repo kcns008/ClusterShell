@@ -36,7 +36,7 @@ func buildAgentPod(template, name, namespace string) *corev1.Pod {
 		},
 		"opencode": {
 			image:   "alpine:3.21",
-			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash ttyd && curl -fsSL https://github.com/opencode-ai/opencode/releases/download/v0.0.55/opencode-linux-x86_64.tar.gz | tar xz -C /usr/local/bin && echo 'OpenCode v0.0.55 ready' && exec ttyd -W -p 7681 /bin/bash"},
+			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash ttyd ripgrep fzf && curl -fsSL https://github.com/opencode-ai/opencode/releases/download/v0.0.55/opencode-linux-x86_64.tar.gz | tar xz -C /usr/local/bin && echo 'OpenCode v0.0.55 ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"claude-code": {
 			image:   "node:22-alpine",
