@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 go build -o /console ./cmd/console/
 # ---- Runtime ----
 FROM docker.io/library/alpine:3.21
 RUN apk add --no-cache ca-certificates && \
-    adduser -D -u 65534 appuser
+    adduser -D -u 10001 appuser
 WORKDIR /app
 COPY --from=backend /console ./console
 # Copy frontend dist into the embedded static dir location
