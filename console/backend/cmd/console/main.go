@@ -21,6 +21,7 @@ func main() {
 	mux.HandleFunc("/api/topology", api.GetTopology)
 	mux.HandleFunc("/api/namespaces", api.ListNamespaces)
 	mux.HandleFunc("/api/deploy", api.DeployAgent)
+	mux.HandleFunc("/api/deploy/helm", api.DeployHelmChart)
 	mux.HandleFunc("/terminal/exec", api.ExecTerminal)
 
 	// Admin API routes

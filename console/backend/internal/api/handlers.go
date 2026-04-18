@@ -72,6 +72,40 @@ func DeployAgent(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "deployed", "name": req.Name})
 }
 
+// DeployHelmChart handles full cluster deployment via Helm chart
+func DeployHelmChart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Chart     string `json:"chart"`
+		Release   string `json:"release"`
+		Namespace string `json:"namespace"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if req.Release == "" || req.Namespace == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "release and namespace are required"})
+		return
+	}
+
+	if err := agents.DeployHelmChart(r.Context(), req.Chart, req.Release, req.Namespace); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "deployed", "release": req.Release, "namespace": req.Namespace})
+}
+
 // ---------------------------------------------------------------------------
 // Admin API — in-memory store (backed by clustershell-server in production)
 // ---------------------------------------------------------------------------
@@ -112,6 +146,9 @@ type catalogEntry struct {
 	Tags        []string `json:"tags"`
 	Enabled     bool     `json:"enabled"`
 	Repo        string   `json:"repo"`
+	Source      string   `json:"source,omitempty"`      // base | community
+	LaunchHint  string   `json:"launchHint,omitempty"`  // CLI hint for community agents
+	ProviderEnv string   `json:"providerEnv,omitempty"` // environment variable for the provider key
 }
 
 var adminStore = struct {
@@ -142,11 +179,12 @@ var adminStore = struct {
 	},
 	scm: scmConfig{Provider: "github", OrgOrGroup: "", BaseURL: "https://github.com", TokenSet: false},
 	catalog: []catalogEntry{
-		{ID: "opencode", Name: "OpenCode / Crush", Description: "Terminal AI coding agent with multi-provider support", Icon: "⚡", Image: "alpine:3.21", Category: "agent", Tags: []string{"coding", "terminal"}, Enabled: true, Repo: "opencode"},
-		{ID: "copilot", Name: "GitHub Copilot CLI", Description: "AI-powered CLI with code suggestions and git assistance", Icon: "🐙", Image: "alpine:3.21", Category: "agent", Tags: []string{"coding", "github"}, Enabled: true, Repo: "github-copilot"},
-		{ID: "claude-code", Name: "Claude Code", Description: "Anthropic agentic coding tool — edit files, run commands", Icon: "🧠", Image: "node:22-alpine", Category: "agent", Tags: []string{"coding", "anthropic"}, Enabled: true, Repo: "claude-code"},
-		{ID: "aider", Name: "Aider", Description: "AI pair programming — GPT-4, Claude, and local models", Icon: "🤝", Image: "python:3.12-alpine", Category: "agent", Tags: []string{"coding", "pair-programming"}, Enabled: true, Repo: "aider"},
-		{ID: "devika", Name: "Devika", Description: "Agentic AI software engineer — plans and writes code", Icon: "👩‍💻", Image: "python:3.12-alpine", Category: "agent", Tags: []string{"autonomous", "planning"}, Enabled: false, Repo: "devika"},
+		{ID: "claude-code", Name: "Claude Code", Description: "Anthropic agentic coding tool — edit files, run commands", Icon: "🧠", Image: "node:22-alpine", Category: "agent", Tags: []string{"coding", "anthropic"}, Enabled: true, Repo: "claude-code", Source: "base", ProviderEnv: "ANTHROPIC_API_KEY"},
+		{ID: "opencode", Name: "OpenCode", Description: "Terminal AI coding agent with multi-provider support", Icon: "⚡", Image: "alpine:3.21", Category: "agent", Tags: []string{"coding", "terminal"}, Enabled: true, Repo: "opencode", Source: "base", ProviderEnv: "OPENAI_API_KEY or OPENROUTER_API_KEY"},
+		{ID: "codex", Name: "Codex", Description: "OpenAI coding agent — autonomous code generation and editing", Icon: "🔮", Image: "node:22-alpine", Category: "agent", Tags: []string{"coding", "openai"}, Enabled: true, Repo: "codex", Source: "base", ProviderEnv: "OPENAI_API_KEY"},
+		{ID: "copilot", Name: "GitHub Copilot CLI", Description: "AI-powered CLI with code suggestions and git assistance", Icon: "🐙", Image: "alpine:3.21", Category: "agent", Tags: []string{"coding", "github"}, Enabled: true, Repo: "github-copilot", Source: "base", ProviderEnv: "GITHUB_TOKEN or COPILOT_GITHUB_TOKEN"},
+		{ID: "openclaw", Name: "OpenClaw", Description: "Community agent — launch with openshell sandbox create --from openclaw", Icon: "🦀", Image: "alpine:3.21", Category: "agent", Tags: []string{"community", "sandbox"}, Enabled: true, Repo: "openclaw", Source: "community", LaunchHint: "openshell sandbox create --from openclaw"},
+		{ID: "ollama", Name: "Ollama", Description: "Community agent — run local LLMs with Ollama", Icon: "🦙", Image: "alpine:3.21", Category: "agent", Tags: []string{"community", "local-inference"}, Enabled: true, Repo: "ollama", Source: "community", LaunchHint: "openshell sandbox create --from ollama"},
 		{ID: "autonomous-experiment", Name: "Autonomous Experiment", Description: "Run timed autonomous research loops", Icon: "🔬", Image: "", Category: "skill", Tags: []string{"research", "experiment"}, Enabled: true, Repo: ".agents/skills/autonomous-experiment"},
 		{ID: "build-from-issue", Name: "Build From Issue", Description: "Implement GitHub issues autonomously", Icon: "🔧", Image: "", Category: "skill", Tags: []string{"github", "automation"}, Enabled: true, Repo: ".agents/skills/build-from-issue"},
 		{ID: "experiment-tracking", Name: "Experiment Tracking", Description: "Track and compare experiment results", Icon: "📊", Image: "", Category: "skill", Tags: []string{"research", "analytics"}, Enabled: true, Repo: ".agents/skills/experiment-tracking"},

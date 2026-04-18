@@ -13,6 +13,9 @@ interface CatalogEntry {
   tags: string[];
   enabled: boolean;
   repo: string;
+  source?: 'base' | 'community';
+  launchHint?: string;
+  providerEnv?: string;
 }
 
 interface SCMConfig {
@@ -22,6 +25,8 @@ interface SCMConfig {
   tokenSet: boolean;
   allowedRepos: string;
 }
+
+type DeployMode = 'agent' | 'cluster';
 
 interface DeployRequest {
   template: string;
@@ -75,6 +80,57 @@ function StepIndicator({ current }: { current: Step }) {
 }
 
 // ---------------------------------------------------------------------------
+// Deploy Mode Selector
+// ---------------------------------------------------------------------------
+function DeployModeSelector({
+  mode,
+  onSelect,
+}: {
+  mode: DeployMode;
+  onSelect: (m: DeployMode) => void;
+}) {
+  return (
+    <div className="mb-4">
+      <p className="text-xs text-[#8b949e] mb-2">What would you like to deploy?</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => onSelect('agent')}
+          className={`text-left p-3 rounded-xl border transition-all ${
+            mode === 'agent'
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-[#2d3748] hover:border-[#4a5568] bg-[#161b22]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🤖</span>
+            <div>
+              <p className={`text-sm font-semibold ${mode === 'agent' ? 'text-blue-400' : 'text-white'}`}>Individual Agent</p>
+              <p className="text-[10px] text-[#8b949e]">Deploy a single sandboxed AI agent</p>
+            </div>
+          </div>
+        </button>
+        <button
+          onClick={() => onSelect('cluster')}
+          className={`text-left p-3 rounded-xl border transition-all ${
+            mode === 'cluster'
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-[#2d3748] hover:border-[#4a5568] bg-[#161b22]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">☸️</span>
+            <div>
+              <p className={`text-sm font-semibold ${mode === 'cluster' ? 'text-blue-400' : 'text-white'}`}>Full Cluster (Helm)</p>
+              <p className="text-[10px] text-[#8b949e]">Deploy the entire ClusterShell stack</p>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Step 1 — Select Agent
 // ---------------------------------------------------------------------------
 function SelectAgentStep({
@@ -112,8 +168,16 @@ function SelectAgentStep({
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/15 text-blue-400 shrink-0">
                     Agent
                   </span>
+                  {entry.source === 'community' && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-600/15 text-purple-400 shrink-0">
+                      Community
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-[#8b949e] line-clamp-2 leading-relaxed">{entry.description}</p>
+                {entry.providerEnv && (
+                  <p className="text-[10px] text-[#4a5568] mt-1 font-mono">{entry.providerEnv}</p>
+                )}
                 {entry.tags.length > 0 && (
                   <div className="flex gap-1 mt-1.5 flex-wrap">
                     {entry.tags.slice(0, 3).map((t) => (
@@ -302,9 +366,68 @@ function ReviewStep({ req, catalog }: { req: DeployRequest; catalog: CatalogEntr
         ))}
       </div>
       <p className="text-xs text-[#636e7b] leading-relaxed">
-        A Kubernetes pod will be created. Click <strong className="text-[#8b949e]">Shell</strong> in
-        Agent Pods once it enters Running state to open it directly.
+        A Kubernetes pod will be created. The agent will appear in
+        Agent Pods once it enters Running state.
       </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helm Cluster Deploy Step
+// ---------------------------------------------------------------------------
+function HelmClusterStep({
+  helmNamespace,
+  setHelmNamespace,
+  helmRelease,
+  setHelmRelease,
+}: {
+  helmNamespace: string;
+  setHelmNamespace: (v: string) => void;
+  helmRelease: string;
+  setHelmRelease: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 p-3 bg-[#161b22] border border-[#2d3748] rounded-xl">
+        <span className="text-2xl">☸️</span>
+        <div>
+          <p className="text-sm font-semibold text-white">ClusterShell Helm Chart</p>
+          <p className="text-xs text-[#8b949e]">deploy/helm/clustershell</p>
+        </div>
+      </div>
+      <p className="text-xs text-[#8b949e] leading-relaxed">
+        This will deploy the full ClusterShell stack (gateway server, sandbox runtime, policy engine,
+        privacy router) into the target namespace using the Helm chart at the root of the repository.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Release Name *</label>
+          <input
+            type="text"
+            value={helmRelease}
+            onChange={(e) => setHelmRelease(e.target.value)}
+            placeholder="clustershell"
+            className="w-full bg-[#0d1117] border border-[#2d3748] focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-white outline-none transition"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Namespace *</label>
+          <input
+            type="text"
+            value={helmNamespace}
+            onChange={(e) => setHelmNamespace(e.target.value)}
+            placeholder="clustershell"
+            className="w-full bg-[#0d1117] border border-[#2d3748] focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-white outline-none transition"
+          />
+        </div>
+      </div>
+      <div className="bg-[#0d1117] border border-[#2d3748] rounded-xl p-3">
+        <p className="text-xs text-[#8b949e] font-medium mb-1">Equivalent command</p>
+        <code className="text-xs text-green-400 font-mono">
+          helm install {helmRelease || '<release>'} deploy/helm/clustershell -n {helmNamespace || '<namespace>'} --create-namespace
+        </code>
+      </div>
     </div>
   );
 }
@@ -313,6 +436,7 @@ function ReviewStep({ req, catalog }: { req: DeployRequest; catalog: CatalogEntr
 // Main Modal
 // ---------------------------------------------------------------------------
 export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps) {
+  const [deployMode, setDeployMode] = useState<DeployMode>('agent');
   const [step, setStep] = useState<Step>(0);
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [scm, setSCM] = useState<SCMConfig>({ provider: 'github', orgOrGroup: '', baseURL: 'https://github.com', tokenSet: false, allowedRepos: '' });
@@ -324,6 +448,8 @@ export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps
     skills: [],
     plugins: [],
   });
+  const [helmNamespace, setHelmNamespace] = useState('clustershell');
+  const [helmRelease, setHelmRelease] = useState('clustershell');
   const [deploying, setDeploying] = useState(false);
   const [error, setError] = useState('');
 
@@ -338,8 +464,9 @@ export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps
   }, []);
 
   const canAdvance = () => {
+    if (deployMode === 'cluster') return !!helmRelease && !!helmNamespace;
     if (step === 0) return !!req.template;
-    if (step === 1) return opencodereq.name && !!req.namespace;
+    if (step === 1) return !!req.name && !!req.namespace;
     return true;
   };
 
@@ -347,14 +474,30 @@ export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps
     setDeploying(true);
     setError('');
     try {
-      const res = await fetch('/api/deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Deploy failed');
+      if (deployMode === 'cluster') {
+        const res = await fetch('/api/deploy/helm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chart: 'deploy/helm/clustershell',
+            release: helmRelease,
+            namespace: helmNamespace,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Helm deploy failed');
+        }
+      } else {
+        const res = await fetch('/api/deploy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Deploy failed');
+        }
       }
       onDeployed();
       onClose();
@@ -364,6 +507,8 @@ export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps
       setDeploying(false);
     }
   };
+
+  const isClusterMode = deployMode === 'cluster';
 
   return (
     <div
@@ -377,7 +522,7 @@ export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps
         <div className="px-6 pt-5 pb-4 border-b border-[#2d3748] flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-white">Deploy Agent</h2>
-            <p className="text-xs text-[#8b949e] mt-0.5">Launch a sandboxed AI agent or blank shell</p>
+            <p className="text-xs text-[#8b949e] mt-0.5">Launch a sandboxed AI agent or deploy the full cluster</p>
           </div>
           <button
             onClick={onClose}
@@ -387,20 +532,42 @@ export function DeployModal({ onClose, namespace, onDeployed }: DeployModalProps
           </button>
         </div>
         <div className="flex-1 overflow-hidden px-6 py-5">
-          <StepIndicator current={step} />
-          {step === 0 && <SelectAgentStep catalog={catalog} selected={req.template} onSelect={(id) => setReq((r) => ({ ...r, template: id, name: id }))} />}
-          {step === 1 && <ConfigureStep req={req} setReq={setReq} scm={scm} catalog={catalog} />}
-          {step === 2 && <ReviewStep req={req} catalog={catalog} />}
+          <DeployModeSelector mode={deployMode} onSelect={(m) => { setDeployMode(m); setStep(0); }} />
+
+          {isClusterMode ? (
+            <HelmClusterStep
+              helmNamespace={helmNamespace}
+              setHelmNamespace={setHelmNamespace}
+              helmRelease={helmRelease}
+              setHelmRelease={setHelmRelease}
+            />
+          ) : (
+            <>
+              <StepIndicator current={step} />
+              {step === 0 && <SelectAgentStep catalog={catalog} selected={req.template} onSelect={(id) => setReq((r) => ({ ...r, template: id, name: id }))} />}
+              {step === 1 && <ConfigureStep req={req} setReq={setReq} scm={scm} catalog={catalog} />}
+              {step === 2 && <ReviewStep req={req} catalog={catalog} />}
+            </>
+          )}
         </div>
         <div className="px-6 py-4 border-t border-[#2d3748] flex items-center justify-between shrink-0">
           <button
-            onClick={step === 0 ? onClose : () => setStep((s) => (s - 1) as Step)}
+            onClick={(step === 0 || isClusterMode) ? onClose : () => setStep((s) => (s - 1) as Step)}
             className="px-4 py-2 text-sm text-[#8b949e] hover:text-white border border-[#2d3748] hover:border-[#4a5568] rounded-lg transition font-medium"
           >
-            {step === 0 ? 'Cancel' : '← Back'}
+            {(step === 0 || isClusterMode) ? 'Cancel' : '← Back'}
           </button>
           {error && <p className="text-red-400 text-xs">{error}</p>}
-          {step < 2 ? (
+          {isClusterMode ? (
+            <button
+              onClick={handleDeploy}
+              disabled={deploying || !canAdvance()}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-[#2d3748] disabled:text-[#636e7b] disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition flex items-center gap-2"
+            >
+              {deploying && <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>}
+              {deploying ? 'Deploying…' : '☸️ Deploy Cluster'}
+            </button>
+          ) : step < 2 ? (
             <button
               onClick={() => setStep((s) => (s + 1) as Step)}
               disabled={!canAdvance()}

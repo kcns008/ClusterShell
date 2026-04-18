@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"fmt"
+	"os/exec"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,34 +26,54 @@ func DeployFromTemplate(ctx context.Context, template, name, namespace string) e
 	return err
 }
 
+// DeployHelmChart installs the ClusterShell Helm chart into the target namespace
+func DeployHelmChart(ctx context.Context, chart, release, namespace string) error {
+	// Restrict chart path to the known Helm chart directory to prevent path traversal
+	allowedChart := "deploy/helm/clustershell"
+	if chart != allowedChart {
+		return fmt.Errorf("unsupported chart path: only %s is allowed", allowedChart)
+	}
+
+	// #nosec G204 — chart path is validated above, release and namespace are user-provided names
+	cmd := exec.CommandContext(ctx, "helm", "install", release, allowedChart,
+		"--namespace", namespace,
+		"--create-namespace",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("helm install failed: %s: %w", string(output), err)
+	}
+	return nil
+}
+
 func buildAgentPod(template, name, namespace string) *corev1.Pod {
 	templates := map[string]struct {
 		image   string
 		command []string
 	}{
-		"copilot": {
-			image:   "docker.io/library/alpine:3.21",
-			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash nodejs npm ttyd && echo 'GitHub Copilot CLI ready' && exec ttyd -W -p 7681 /bin/bash"},
+		"claude-code": {
+			image:   "docker.io/library/node:22-alpine",
+			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && npm install -g @anthropic-ai/claude-code && echo 'Claude Code ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"opencode": {
 			image:   "docker.io/library/alpine:3.21",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash ttyd ripgrep fzf && curl -fsSL https://github.com/opencode-ai/opencode/releases/download/v0.0.55/opencode-linux-x86_64.tar.gz | tar xz -C /usr/local/bin && echo 'OpenCode v0.0.55 ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
-		"claude-code": {
+		"codex": {
 			image:   "docker.io/library/node:22-alpine",
-			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && npm install -g @anthropic-ai/claude-code && echo 'Claude Code ready' && exec ttyd -W -p 7681 /bin/bash"},
+			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && npm install -g @openai/codex && echo 'Codex ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
-		"aider": {
-			image:   "docker.io/library/python:3.12-alpine",
-			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && pip install aider-install && echo 'Aider ready' && exec ttyd -W -p 7681 /bin/bash"},
+		"copilot": {
+			image:   "docker.io/library/alpine:3.21",
+			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash nodejs npm ttyd && echo 'GitHub Copilot CLI ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
-		"cline": {
-			image:   "docker.io/library/node:22-alpine",
-			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && echo 'Cline requires VS Code - deploying as terminal workspace' && exec ttyd -W -p 7681 /bin/bash"},
+		"openclaw": {
+			image:   "docker.io/library/alpine:3.21",
+			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash ttyd && curl -fsSL https://get.openshell.dev | sh && echo 'OpenClaw ready — use: openshell sandbox create --from openclaw' && exec ttyd -W -p 7681 /bin/bash"},
 		},
-		"devika": {
-			image:   "docker.io/library/python:3.12-alpine",
-			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd build-base && pip install devika && echo 'Devika ready' && exec ttyd -W -p 7681 /bin/bash"},
+		"ollama": {
+			image:   "docker.io/library/alpine:3.21",
+			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash ttyd && curl -fsSL https://get.openshell.dev | sh && echo 'Ollama ready — use: openshell sandbox create --from ollama' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 	}
 
