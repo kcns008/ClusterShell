@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AgentShell } from './components/Shell/AgentShell';
-import { AgentTopology } from './components/Topology/AgentTopology';
 import { DeployModal } from './components/DeployAgent/DeployModal';
 import { AdminPanel } from './components/Admin/AdminPanel';
 
@@ -24,7 +23,7 @@ interface Namespace {
   status: string;
 }
 
-type View = 'dashboard' | 'agents' | 'topology' | 'settings';
+type View = 'dashboard' | 'agents' | 'settings';
 type ShellSession = {
   id: string;
   namespace: string;
@@ -46,14 +45,14 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
   ),
-  topology: (
-    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+  sun: (
+    <svg className="w-[16px] h-[16px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
     </svg>
   ),
-  admin: (
-    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+  moon: (
+    <svg className="w-[16px] h-[16px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
     </svg>
   ),
   settings: (
@@ -96,15 +95,18 @@ function Sidebar({
   view,
   setView,
   onDeploy,
+  theme,
+  onToggleTheme,
 }: {
   view: View;
   setView: (v: View) => void;
   onDeploy: () => void;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
 }) {
   const main: { id: View; label: string; icon: JSX.Element }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: Icons.dashboard },
     { id: 'agents', label: 'Agent Pods', icon: Icons.agents },
-    { id: 'topology', label: 'Topology', icon: Icons.topology },
   ];
 
   return (
@@ -161,6 +163,13 @@ function Sidebar({
         >
           {Icons.settings}
           Settings
+        </button>
+        <button
+          onClick={onToggleTheme}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-[#636e7b] hover:text-[#8b949e] transition-all"
+        >
+          {theme === 'dark' ? Icons.sun : Icons.moon}
+          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
         </button>
         <div className="flex items-center gap-2 px-3 py-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
@@ -348,7 +357,6 @@ function DashboardView({
           <div className="grid grid-cols-2 gap-2">
             {[
               { label: 'Agent Pods', icon: DashIcons.pods, action: () => onNavigate('agents') },
-              { label: 'Topology', icon: DashIcons.network, action: () => onNavigate('topology') },
               { label: 'Settings', icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
@@ -621,6 +629,22 @@ export function App() {
   const [activeShell, setActiveShell] = useState<string | null>(null);
   const [showDeploy, setShowDeploy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('cs-theme') as 'dark' | 'light') || 'dark';
+    }
+    return 'dark';
+  });
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('cs-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  }, []);
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -645,16 +669,6 @@ export function App() {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
-
-  // Listen for topology double-click → open shell
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      const { namespace, podName } = e.detail;
-      openShell({ name: podName, namespace, template: '' } as AgentPod);
-    };
-    window.addEventListener('open-terminal', handler as EventListener);
-    return () => window.removeEventListener('open-terminal', handler as EventListener);
-  }, []);
 
   const openShell = (pod: AgentPod) => {
     const id = `${pod.namespace}-${pod.name}-${Date.now()}`;
@@ -683,14 +697,13 @@ export function App() {
   const viewTitles: Record<View, string> = {
     dashboard: 'Dashboard',
     agents: 'Agent Pods',
-    topology: 'Topology',
     settings: 'Settings',
   };
 
   return (
     <div className="h-screen flex bg-[#0a0c10]">
       {/* Sidebar */}
-      <Sidebar view={view} setView={setView} onDeploy={() => setShowDeploy(true)} />
+      <Sidebar view={view} setView={setView} onDeploy={() => setShowDeploy(true)} theme={theme} onToggleTheme={toggleTheme} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -723,10 +736,6 @@ export function App() {
               <DashboardView agents={filteredAgents} namespaces={namespaces} onNavigate={setView} />
             ) : view === 'agents' ? (
               <AgentListView agents={filteredAgents} namespace={selectedNs} onShellOpen={openShell} />
-            ) : view === 'topology' ? (
-              <div className="absolute inset-0 p-5">
-                <AgentTopology />
-              </div>
             ) : view === 'settings' ? (
               <AdminPanel />
             ) : null}

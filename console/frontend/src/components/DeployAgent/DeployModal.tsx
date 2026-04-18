@@ -41,7 +41,7 @@ interface DeployModalProps {
 // ---------------------------------------------------------------------------
 // Step Indicator
 // ---------------------------------------------------------------------------
-const Steps = ['Select Agent', 'Configure', 'Review'] as const;
+const Steps = ['Select Agent', 'Add-ons & Config', 'Review'] as const;
 type Step = 0 | 1 | 2;
 
 function StepIndicator({ current }: { current: Step }) {
@@ -86,27 +86,13 @@ function SelectAgentStep({
   selected: string | null;
   onSelect: (id: string) => void;
 }) {
-  const [filter, setFilter] = useState<'all' | 'agent' | 'skill' | 'plugin'>('all');
-  const visible = catalog.filter((e) => e.enabled && (filter === 'all' || e.category === filter));
+  const agents = catalog.filter((e) => e.enabled && e.category === 'agent');
 
   return (
     <div>
-      <div className="flex gap-1 mb-4">
-        {(['all', 'agent', 'skill', 'plugin'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
-              filter === f ? 'bg-blue-600 text-white' : 'bg-[#1c2128] text-[#8b949e] hover:text-white hover:bg-[#2d3748]'
-            }`}
-          >
-            {f === 'all' ? 'All' : f + 's'}
-          </button>
-        ))}
-      </div>
-
+      <p className="text-xs text-[#8b949e] mb-3">Select an agent to deploy <span className="text-red-400">*</span></p>
       <div className="grid grid-cols-2 gap-2 max-h-[48vh] overflow-y-auto pr-1">
-        {visible.map((entry) => (
+        {agents.map((entry) => (
           <button
             key={entry.id}
             onClick={() => onSelect(entry.id)}
@@ -123,8 +109,8 @@ function SelectAgentStep({
                   <p className={`text-sm font-semibold truncate ${selected === entry.id ? 'text-blue-400' : 'text-white'}`}>
                     {entry.name}
                   </p>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#2d3748] text-[#8b949e] shrink-0 capitalize">
-                    {entry.category}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/15 text-blue-400 shrink-0">
+                    Agent
                   </span>
                 </div>
                 <p className="text-xs text-[#8b949e] line-clamp-2 leading-relaxed">{entry.description}</p>
@@ -141,9 +127,9 @@ function SelectAgentStep({
             </div>
           </button>
         ))}
-        {visible.length === 0 && (
+        {agents.length === 0 && (
           <div className="col-span-2 py-12 text-center text-[#4a5568] text-sm">
-            No entries in this category.
+            No agents available.
           </div>
         )}
       </div>
@@ -189,6 +175,63 @@ function ConfigureStep({
           </div>
         </div>
       )}
+
+      {/* Optional Skills */}
+      {skills.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-[#8b949e] mb-1">
+            Skills
+            <span className="ml-1 text-[#4a5568] font-normal">(optional)</span>
+          </label>
+          <p className="text-[10px] text-[#4a5568] mb-2">Add skills to extend the agent's capabilities</p>
+          <div className="flex flex-wrap gap-2">
+            {skills.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => toggleSkill(s.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  req.skills.includes(s.id)
+                    ? 'border-blue-500 bg-blue-600/10 text-blue-400'
+                    : 'border-[#2d3748] bg-[#161b22] text-[#8b949e] hover:border-[#4a5568] hover:text-white'
+                }`}
+              >
+                <span>{s.icon}</span>{s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Optional Plugins */}
+      {plugins.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-[#8b949e] mb-1">
+            Plugins
+            <span className="ml-1 text-[#4a5568] font-normal">(optional)</span>
+          </label>
+          <p className="text-[10px] text-[#4a5568] mb-2">Add plugins for additional integrations</p>
+          <div className="flex flex-wrap gap-2">
+            {plugins.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => togglePlugin(p.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  req.plugins.includes(p.id)
+                    ? 'border-purple-500 bg-purple-600/10 text-purple-400'
+                    : 'border-[#2d3748] bg-[#161b22] text-[#8b949e] hover:border-[#4a5568] hover:text-white'
+                }`}
+              >
+                <span>{p.icon}</span>{p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Separator */}
+      <div className="border-t border-[#2d3748]" />
+
+      {/* Configuration fields */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Agent Name *</label>
@@ -229,46 +272,6 @@ function ConfigureStep({
           />
         </div>
       </div>
-      {skills.length > 0 && (
-        <div>
-          <label className="block text-xs font-medium text-[#8b949e] mb-2">Skills</label>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => toggleSkill(s.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  req.skills.includes(s.id)
-                    ? 'border-blue-500 bg-blue-600/10 text-blue-400'
-                    : 'border-[#2d3748] bg-[#161b22] text-[#8b949e] hover:border-[#4a5568] hover:text-white'
-                }`}
-              >
-                <span>{s.icon}</span>{s.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {plugins.length > 0 && (
-        <div>
-          <label className="block text-xs font-medium text-[#8b949e] mb-2">Plugins</label>
-          <div className="flex flex-wrap gap-2">
-            {plugins.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => togglePlugin(p.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  req.plugins.includes(p.id)
-                    ? 'border-purple-500 bg-purple-600/10 text-purple-400'
-                    : 'border-[#2d3748] bg-[#161b22] text-[#8b949e] hover:border-[#4a5568] hover:text-white'
-                }`}
-              >
-                <span>{p.icon}</span>{p.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

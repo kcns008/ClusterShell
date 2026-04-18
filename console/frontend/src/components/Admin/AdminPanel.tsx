@@ -456,9 +456,6 @@ function PoliciesTab({ policies, onRefresh }: { policies: PolicyTemplate[]; onRe
 // Tab: Catalog Management
 // ---------------------------------------------------------------------------
 function CatalogTab({ catalog, onRefresh }: { catalog: CatalogEntry[]; onRefresh: () => void }) {
-  const [filter, setFilter] = useState<'all' | 'agent' | 'skill' | 'plugin'>('all');
-  const visible = catalog.filter((e) => filter === 'all' || e.category === filter);
-
   const toggleEnabled = async (entry: CatalogEntry) => {
     await fetch('/api/admin/catalog', {
       method: 'PUT',
@@ -468,63 +465,69 @@ function CatalogTab({ catalog, onRefresh }: { catalog: CatalogEntry[]; onRefresh
     onRefresh();
   };
 
-  return (
-    <SectionCard
-      title="Agent, Skill & Plugin Catalog"
-      subtitle="Control which items are available to users when deploying"
-      action={
-        <div className="flex gap-1">
-          {(['all', 'agent', 'skill', 'plugin'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition capitalize ${
-                filter === f ? 'bg-blue-600 text-white' : 'bg-[#2d3748] text-[#8b949e] hover:text-white'
-              }`}
-            >
-              {f === 'all' ? 'All' : f + 's'}
-            </button>
-          ))}
-        </div>
-      }
-    >
-      <div className="divide-y divide-[#2d3748]">
-        {visible.map((entry) => (
-          <div key={entry.id} className="px-5 py-3 flex items-center justify-between hover:bg-white/[0.015] transition">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <span className="text-xl">{entry.icon}</span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-white truncate">{entry.name}</p>
-                  <Badge label={entry.category} color={entry.category === 'agent' ? 'blue' : entry.category === 'skill' ? 'purple' : 'amber'} />
-                </div>
-                <p className="text-xs text-[#636e7b] truncate">{entry.description}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              {entry.image && (
-                <span className="text-[10px] font-mono text-[#4a5568]">{entry.image}</span>
-              )}
-              <button
-                onClick={() => toggleEnabled(entry)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                  entry.enabled ? 'bg-blue-600' : 'bg-[#2d3748]'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition ${
-                    entry.enabled ? 'translate-x-4' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+  const agents = catalog.filter((e) => e.category === 'agent');
+  const skills = catalog.filter((e) => e.category === 'skill');
+  const plugins = catalog.filter((e) => e.category === 'plugin');
+
+  const renderEntries = (entries: CatalogEntry[], emptyMsg: string) => (
+    <div className="divide-y divide-[#2d3748]">
+      {entries.map((entry) => (
+        <div key={entry.id} className="px-5 py-3 flex items-center justify-between hover:bg-white/[0.015] transition">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <span className="text-xl">{entry.icon}</span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white truncate">{entry.name}</p>
+              <p className="text-xs text-[#636e7b] truncate">{entry.description}</p>
             </div>
           </div>
-        ))}
-        {visible.length === 0 && (
-          <div className="px-5 py-8 text-center text-[#4a5568] text-sm">No catalog entries</div>
-        )}
-      </div>
-    </SectionCard>
+          <div className="flex items-center gap-3 shrink-0">
+            {entry.image && (
+              <span className="text-[10px] font-mono text-[#4a5568]">{entry.image}</span>
+            )}
+            <button
+              onClick={() => toggleEnabled(entry)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                entry.enabled ? 'bg-blue-600' : 'bg-[#2d3748]'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition ${
+                  entry.enabled ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      ))}
+      {entries.length === 0 && (
+        <div className="px-5 py-8 text-center text-[#4a5568] text-sm">{emptyMsg}</div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title="Agent Catalog"
+        subtitle="Manage which agents are available to users when deploying"
+      >
+        {renderEntries(agents, 'No agents configured')}
+      </SectionCard>
+
+      <SectionCard
+        title="Skill Catalog"
+        subtitle="Skills extend agent capabilities and can be attached during deployment"
+      >
+        {renderEntries(skills, 'No skills configured')}
+      </SectionCard>
+
+      <SectionCard
+        title="Plugin Catalog"
+        subtitle="Plugins add integrations and can be attached during deployment"
+      >
+        {renderEntries(plugins, 'No plugins configured')}
+      </SectionCard>
+    </div>
   );
 }
 
