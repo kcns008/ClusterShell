@@ -31,27 +31,27 @@ func buildAgentPod(template, name, namespace string) *corev1.Pod {
 		command []string
 	}{
 		"copilot": {
-			image:   "alpine:3.21",
+			image:   "docker.io/library/alpine:3.21",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash nodejs npm ttyd && echo 'GitHub Copilot CLI ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"opencode": {
-			image:   "alpine:3.21",
+			image:   "docker.io/library/alpine:3.21",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git curl bash ttyd ripgrep fzf && curl -fsSL https://github.com/opencode-ai/opencode/releases/download/v0.0.55/opencode-linux-x86_64.tar.gz | tar xz -C /usr/local/bin && echo 'OpenCode v0.0.55 ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"claude-code": {
-			image:   "node:22-alpine",
+			image:   "docker.io/library/node:22-alpine",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && npm install -g @anthropic-ai/claude-code && echo 'Claude Code ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"aider": {
-			image:   "python:3.12-alpine",
+			image:   "docker.io/library/python:3.12-alpine",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && pip install aider-install && echo 'Aider ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"cline": {
-			image:   "node:22-alpine",
+			image:   "docker.io/library/node:22-alpine",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd && echo 'Cline requires VS Code - deploying as terminal workspace' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 		"devika": {
-			image:   "python:3.12-alpine",
+			image:   "docker.io/library/python:3.12-alpine",
 			command: []string{"/bin/sh", "-c", "apk add --no-cache git bash ttyd build-base && pip install devika && echo 'Devika ready' && exec ttyd -W -p 7681 /bin/bash"},
 		},
 	}

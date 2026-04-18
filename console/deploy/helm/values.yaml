@@ -1,0 +1,110 @@
+## ClusterShell Console — Helm values
+## Override these in your own values.yaml or via --set flags.
+
+## Container image
+image:
+  repository: docker.io/clustershell/console
+  tag: ""  # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+## Number of replicas
+replicaCount: 1
+
+## Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+## RBAC — creates ClusterRole + ClusterRoleBinding so the console can
+## list pods, services, namespaces, ingresses, PVCs, and exec into pods.
+rbac:
+  create: true
+
+## Pod-level settings
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 1000
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+## Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+## Service
+service:
+  type: ClusterIP
+  port: 8080
+
+## Ingress (Kubernetes nginx-ingress / OpenShift Route)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-issuer
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/websocket-services: clustershell-console
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: console.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: clustershell-console-tls
+    #   hosts:
+    #     - console.example.com
+
+## OpenShift Route (alternative to Ingress for OpenShift clusters)
+route:
+  enabled: false
+  host: ""
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+## Health probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+## Extra environment variables
+env: []
+  # - name: PORT
+  #   value: "8080"
+
+## Node placement
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+## Namespace to deploy into (defaults to Release.Namespace)
+namespace: ""

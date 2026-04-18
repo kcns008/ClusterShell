@@ -56,11 +56,9 @@ spec:
         app: clustershell-console
     spec:
       serviceAccountName: clustershell-console
-      imagePullSecrets:
-      - name: ghcr-secret
       containers:
       - name: console
-        image: ghcr.io/kcns008/clustershell-console:latest
+        image: docker.io/clustershell/console:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

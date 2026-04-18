@@ -1,0 +1,19 @@
+apiVersion: v2
+name: clustershell-console
+description: ClusterShell Console — Web dashboard for managing AI agent sandboxes on Kubernetes and OpenShift
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - clustershell
+  - console
+  - ai-agents
+  - sandbox
+  - kubernetes
+  - openshift
+home: https://github.com/kcns008/clustershell
+sources:
+  - https://github.com/kcns008/clustershell
+maintainers:
+  - name: ClusterShell
+icon: https://raw.githubusercontent.com/kcns008/clustershell/main/docs/assets/icon.png

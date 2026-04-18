@@ -1,0 +1,18 @@
+1. Get the application URL by running:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ (first $host.paths).path }}
+{{- end }}
+{{- else if .Values.route.enabled }}
+  oc get route {{ include "clustershell-console.fullname" . }} -n {{ include "clustershell-console.namespace" . }} -o jsonpath='{.spec.host}'
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ include "clustershell-console.namespace" . }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "clustershell-console.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ include "clustershell-console.namespace" . }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  kubectl get --namespace {{ include "clustershell-console.namespace" . }} svc {{ include "clustershell-console.fullname" . }} -w
+{{- else }}
+  kubectl port-forward --namespace {{ include "clustershell-console.namespace" . }} svc/{{ include "clustershell-console.fullname" . }} 8080:{{ .Values.service.port }}
+  echo "Visit http://localhost:8080"
+{{- end }}
