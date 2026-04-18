@@ -2,6 +2,8 @@
 
 Web UI for managing ClusterShell AI agent deployments — inspired by OpenShift Console.
 
+The ClusterShell stack (gateway server, sandbox runtime, policy engine, privacy router) is deployed into the cluster first via the Helm chart (`deploy/helm/clustershell`). Once the cluster is running, the console provides a web interface for deploying and managing individual sandboxed AI agents within it.
+
 ## Features
 
 - **Agent Management** — List, create, delete, and monitor agent pods
