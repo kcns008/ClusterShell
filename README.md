@@ -7,6 +7,10 @@
 [![Project Status](https://img.shields.io/badge/status-alpha-orange)](https://docs.nvidia.com/clustershell/latest/about/release-notes.html)
 
 <p align="center">
+  <img src="raw/clustershell.gif" alt="ClusterShell demo" width="960" />
+</p>
+
+<p align="center">
   <img src="deploy/opencode/demo.gif" alt="OpenCode AI agent deployed on ClusterShell / Kubernetes" width="960" />
 </p>
 
