@@ -91,6 +91,14 @@ kubectl exec -it sandbox/my-sandbox -- claude
 
 See the [Kubernetes Operator documentation](architecture/kubernetes-operator.md) for full details on CRD-based management, RuntimeClasses (gVisor/Kata), and OpenShift integration.
 
+### LLM Inference with llm-d
+
+Run high-performance distributed LLM inference inside your cluster using [llm-d](https://llm-d.ai/) — a CNCF sandbox project for intelligent routing, KV-cache management, and prefill/decode disaggregation on Kubernetes. ClusterShell agents in sandboxes connect via `OPENAI_BASE_URL` to the llm-d router, which schedules requests across vLLM backend pods with prefix-cache-aware and load-aware routing.
+
+Three deployment tiers are provided: **Quickstart** (single GPU, vLLM only), **Standard** (llm-d router + multi-GPU vLLM with prefix caching), and **Production** (prefill/decode disaggregation, KV-cache offload, HPA autoscaling). Supports Llama, Qwen, CodeLlama, and any vLLM-compatible model.
+
+See [`deploy/llm-d/README.md`](deploy/llm-d/README.md) for architecture, prerequisites, and deployment guides.
+
 ---
 
 ## What's Included

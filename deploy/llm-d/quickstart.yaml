@@ -1,0 +1,157 @@
+# Quickstart: Single-GPU vLLM + llm-d router on ClusterShell
+# Apply with: kubectl apply -f quickstart.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clustershell-inference
+  labels:
+    app.kubernetes.io/part-of: clustershell
+    app.kubernetes.io/component: inference
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-server
+  namespace: clustershell-inference
+  labels:
+    app: vllm-server
+    app.kubernetes.io/part-of: clustershell
+    app.kubernetes.io/component: model-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-server
+  template:
+    metadata:
+      labels:
+        app: vllm-server
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args:
+            - --model
+            - meta-llama/Llama-3.1-8B-Instruct
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --max-model-len
+            - "4096"
+            - --gpu-memory-utilization
+            - "0.9"
+            - --dtype
+            - auto
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+              cpu: "4"
+              memory: "16Gi"
+            limits:
+              nvidia.com/gpu: 1
+              cpu: "8"
+              memory: "32Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-server
+  namespace: clustershell-inference
+  labels:
+    app: vllm-server
+    app.kubernetes.io/part-of: clustershell
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app: vllm-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-d-router
+  namespace: clustershell-inference
+  labels:
+    app: llm-d-router
+    app.kubernetes.io/part-of: clustershell
+    app.kubernetes.io/component: inference-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-d-router
+  template:
+    metadata:
+      labels:
+        app: llm-d-router
+    spec:
+      containers:
+        - name: router
+          image: ghcr.io/llm-d/llm-d-routing-proxy:v0.7.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VLLM_BACKEND_URLS
+              value: "http://vllm-server.clustershell-inference.svc:8000"
+            - name: ROUTING_STRATEGY
+              value: "prefix-cache-aware"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-d-router
+  namespace: clustershell-inference
+  labels:
+    app: llm-d-router
+    app.kubernetes.io/part-of: clustershell
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app: llm-d-router

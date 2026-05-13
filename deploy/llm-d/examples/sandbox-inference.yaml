@@ -1,0 +1,40 @@
+# ClusterShell Sandbox CRD configured to use llm-d inference
+apiVersion: agent-sandbox.io/v1
+kind: Sandbox
+metadata:
+  name: llm-powered-agent
+  labels:
+    app.kubernetes.io/part-of: clustershell
+spec:
+  image: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
+  agent: claude
+
+  # Point agent at the llm-d router for OpenAI-compatible inference
+  env:
+    - name: OPENAI_BASE_URL
+      value: http://llm-d-router.clustershell-inference.svc:8000
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-api-key
+          key: api-key
+          optional: true
+
+  # Allow egress to the inference namespace
+  networkPolicy:
+    egress:
+      - to:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: clustershell
+        ports:
+          - port: 8000
+            protocol: TCP
+      # Allow DNS resolution
+      - to:
+        - cidr: 0.0.0.0/0
+        ports:
+          - port: 53
+            protocol: UDP
+          - port: 53
+            protocol: TCP

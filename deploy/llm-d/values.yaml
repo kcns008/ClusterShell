@@ -1,0 +1,127 @@
+# ClusterShell llm-d Helm Values
+# Deploy high-performance LLM inference for sandboxed agents
+
+namespace: clustershell-inference
+
+# -- llm-d Router (Inference Gateway)
+router:
+  image: ghcr.io/llm-d/llm-d-routing-proxy:v0.7.0
+  replicas: 2
+  resources:
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+  service:
+    type: ClusterIP
+    port: 8000
+  # Prefix-cache-aware routing: routes requests to pods with matching KV cache
+  prefixCacheRouting:
+    enabled: true
+  # Load-aware routing: balances based on active request count
+  loadAwareRouting:
+    enabled: true
+  # Predicted-latency scheduling: estimates completion time before routing
+  predictedLatencyScheduling:
+    enabled: false
+
+# -- vLLM Model Servers
+modelServers:
+  # Baseline: Llama 3.1 8B
+  - name: llama-3.1-8b
+    image: vllm/vllm-openai:latest
+    replicas: 2
+    model: meta-llama/Llama-3.1-8B-Instruct
+    resources:
+      requests:
+        nvidia.com/gpu: 1
+        cpu: "4"
+        memory: "16Gi"
+      limits:
+        nvidia.com/gpu: 1
+        cpu: "8"
+        memory: "32Gi"
+    extraArgs:
+      - --max-model-len=8192
+      - --gpu-memory-utilization=0.9
+      - --dtype=auto
+    kvCache:
+      offload:
+        enabled: false
+    service:
+      port: 8000
+
+  # Optional: Larger model (uncomment to enable)
+  # - name: llama-3.1-70b
+  #   image: vllm/vllm-openai:latest
+  #   replicas: 4
+  #   model: meta-llama/Llama-3.1-70B-Instruct
+  #   tensorParallelSize: 4
+  #   resources:
+  #     requests:
+  #       nvidia.com/gpu: 4
+  #       cpu: "16"
+  #       memory: "64Gi"
+  #     limits:
+  #       nvidia.com/gpu: 4
+  #       cpu: "32"
+  #       memory: "128Gi"
+  #   kvCache:
+  #     offload:
+  #       enabled: true
+  #       type: cpu  # cpu or disk
+  #   service:
+  #     port: 8000
+
+# -- Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 70
+  targetLatencyMs: 2000
+  scaleDownStabilizationSeconds: 300
+
+# -- Prefill/Decode Disaggregation (production only)
+disaggregation:
+  enabled: false
+  prefill:
+    replicas: 2
+    resources:
+      requests:
+        nvidia.com/gpu: 2
+        cpu: "8"
+        memory: "32Gi"
+      limits:
+        nvidia.com/gpu: 2
+        cpu: "16"
+        memory: "64Gi"
+  decode:
+    replicas: 4
+    resources:
+      requests:
+        nvidia.com/gpu: 1
+        cpu: "4"
+        memory: "16Gi"
+      limits:
+        nvidia.com/gpu: 1
+        cpu: "8"
+        memory: "32Gi"
+
+# -- ClusterShell Network Policy Integration
+networkPolicy:
+  enabled: true
+  # Allow ingress from ClusterShell sandbox namespace
+  sandboxNamespaces:
+    - clustershell-sandboxes
+    - default
+  # Allow egress to model hubs for downloading weights
+  allowedEgress:
+    - huggingface.co
+    - cdn-lfs.huggingface.co
+
+# -- Model download credentials (optional)
+huggingface:
+  tokenSecret: ""  # Name of K8s secret with HF_TOKEN

@@ -1,0 +1,305 @@
+# Production: Full llm-d stack with disaggregation, KV cache offload, autoscaling
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clustershell-inference
+  labels:
+    app.kubernetes.io/part-of: clustershell
+---
+# -- Prefill Pool: handles prompt processing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-prefill
+  namespace: clustershell-inference
+  labels:
+    app: vllm-prefill
+    role: prefill
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vllm-prefill
+  template:
+    metadata:
+      labels:
+        app: vllm-prefill
+        role: prefill
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args:
+            - --model
+            - meta-llama/Llama-3.1-70B-Instruct
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --max-model-len
+            - "16384"
+            - --tensor-parallel-size
+            - "2"
+            - --gpu-memory-utilization
+            - "0.95"
+            - --dtype
+            - auto
+            - --kv-cache-dtype
+            - fp8
+            - --enable-prefix-caching
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              nvidia.com/gpu: 2
+              cpu: "8"
+              memory: "64Gi"
+            limits:
+              nvidia.com/gpu: 2
+              cpu: "16"
+              memory: "128Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-prefill
+  namespace: clustershell-inference
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: vllm-prefill
+---
+# -- Decode Pool: handles token generation with KV cache offload
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-decode
+  namespace: clustershell-inference
+  labels:
+    app: vllm-decode
+    role: decode
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: vllm-decode
+  template:
+    metadata:
+      labels:
+        app: vllm-decode
+        role: decode
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args:
+            - --model
+            - meta-llama/Llama-3.1-70B-Instruct
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --max-model-len
+            - "16384"
+            - --gpu-memory-utilization
+            - "0.9"
+            - --dtype
+            - auto
+            - --kv-cache-dtype
+            - fp8
+            - --enable-prefix-caching
+            - --swap-space
+            - "16"
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+              cpu: "4"
+              memory: "32Gi"
+            limits:
+              nvidia.com/gpu: 1
+              cpu: "8"
+              memory: "64Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-decode
+  namespace: clustershell-inference
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: vllm-decode
+---
+# -- llm-d Router with full routing strategies
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-d-router
+  namespace: clustershell-inference
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: llm-d-router
+  template:
+    metadata:
+      labels:
+        app: llm-d-router
+    spec:
+      containers:
+        - name: router
+          image: ghcr.io/llm-d/llm-d-routing-proxy:v0.7.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PREFILL_BACKEND_URLS
+              value: "http://vllm-prefill.clustershell-inference.svc:8000"
+            - name: DECODE_BACKEND_URLS
+              value: "http://vllm-decode.clustershell-inference.svc:8000"
+            - name: ROUTING_STRATEGY
+              value: "prefix-cache-aware"
+            - name: KV_CACHE_OFFLOAD
+              value: "cpu"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-d-router
+  namespace: clustershell-inference
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: llm-d-router
+---
+# -- HPA: autoscale decode pool based on request latency
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-decode-hpa
+  namespace: clustershell-inference
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-decode
+  minReplicas: 4
+  maxReplicas: 16
+  metrics:
+    - type: Resource
+      resource:
+        name: nvidia.com/gpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+---
+# -- HPA: autoscale prefill pool
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-prefill-hpa
+  namespace: clustershell-inference
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-prefill
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: nvidia.com/gpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 60
+---
+# -- Network Policy: restrict access to ClusterShell sandboxes
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-sandboxes
+  namespace: clustershell-inference
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: clustershell
+      ports:
+        - port: 8000
+          protocol: TCP
